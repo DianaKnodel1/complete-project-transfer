@@ -3,7 +3,7 @@
 ## Aufteilung
 
 ```text
-Server 1 (Haupt-Server)                 Server 2 (Backup-Server)
+Server 1: 190.97.165.55 (Haupt)         Server 2: 190.97.165.56
 - Backend (Datenbank, Logins, Dateien)  - holt nachts alles von Server 1
 - Mitarbeiter-/Admin-Portal             - Server 1 hat KEINEN Zugriff hierher
 - WebID-Server
@@ -21,7 +21,7 @@ Alles startet leer: neue Schlüssel, neue Datenbank, keine alten Daten.
 
 ## Was ich von Ihnen brauche (vor der Ausführung)
 
-- IP-Adressen beider Server und das Betriebssystem
+- Betriebssystem der Server (IPs: 190.97.165.55 und 190.97.165.56)
 - Die neue Domain bzw. gewünschte Adressen (Portal, Backend, WebID)
 - SMTP-/Mail-Zugang für die neue Instanz
 - SSH-Zugang (ich führe die Befehle nicht selbst aus; Sie kopieren sie, oder Sie geben mir die Ausgaben)
