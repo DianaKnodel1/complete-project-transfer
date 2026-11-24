@@ -16,3 +16,16 @@
 ## Technische Details
 - `src/lib/landing-bootstrap-script.ts` öffnet http/https per firewalld für alle; `scripts/harden-landing-server.sh` (ufw nur Cloudflare-IPs) wird integriert bzw. am Ende des Bootstraps aufgerufen.
 - Zusätzlich: ausgehend Port 25 blockieren.
+
+## Wo die Landing-IP typischerweise sichtbar wird
+- **Internet-Scanner (Censys, Shodan):** Sie rufen jede IP direkt auf und lesen das Zertifikat bzw. die Seite aus – dann steht dort "Domain X liegt auf IP Y". Gegenmittel: Firewall lässt Webseiten-Zugriffe nur von Cloudflare zu; direkter Aufruf der IP zeigt nichts.
+- **DNS-Einträge ohne orange Wolke** (z. B. `www`, `mail`, `server`, Unteradressen) oder ein alter Eintrag aus der Zeit vor Cloudflare (DNS-Verlauf-Dienste speichern das). Gegenmittel: alle Einträge der Landing-Domains auf "Proxied"; neue IP nie ungeschützt veröffentlichen.
+- **E-Mails vom Server selbst** (Kopfzeilen enthalten die IP). Gegenmittel: keine Mail vom Landing-Server, Versand nur über den Mail-Dienst.
+- **Gleiche IP für viele Domains:** Eine gemeldete Domain bringt alle anderen mit herunter.
+
+## Zusätzliche Schutzmaßnahmen
+- Cloudflare "Authenticated Origin Pulls" bzw. Cloudflare-Herkunftszertifikat: Server antwortet nur echten Cloudflare-Anfragen.
+- Optional später: Cloudflare Tunnel – der Server hat dann gar keine offenen Webseiten-Ports mehr, die IP ist praktisch unsichtbar.
+- Prüfbefehl für Sie: `curl -k https://<SERVER-IP>` von außen muss scheitern.
+
+Wichtig: Gegen Beschwerden über den **Inhalt** einer Seite hilft das Verstecken nur, wenn Cloudflare die Meldung nicht mit IP an den Hoster weitergibt (Punkt 3 oben).
