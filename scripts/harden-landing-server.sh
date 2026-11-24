@@ -25,6 +25,8 @@ set -euo pipefail
 
 SSH_PORT="${SSH_PORT:-22}"
 SSH_ALLOW_IP="${SSH_ALLOW_IP:-}"
+# Optional: IP des Portal-Hauptservers, darf direkt auf 80/443 (Veröffentlichen/Prüfen)
+PORTAL_ALLOW_IP="${PORTAL_ALLOW_IP:-}"
 SSH_PORT_CONFIG="${SSH_PORT_CONFIG:-}"
 PROJECT_DIR="${PROJECT_DIR:-/opt/apps/portal}"
 [ -d "$PROJECT_DIR" ] || PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -158,6 +160,13 @@ else
   systemctl enable --now dnf-automatic.timer >/dev/null 2>&1 || true
 fi
 
+if [ -n "$PORTAL_ALLOW_IP" ]; then
+  ufw allow from "$PORTAL_ALLOW_IP" to any port 80,443 proto tcp comment 'portal' >/dev/null
+  ok "Portal-Server $PORTAL_ALLOW_IP darf direkt auf 80/443"
+fi
+# Kein Mailversand direkt vom Landing-Server (verhindert Spam-Abuse + IP in Mail-Kopfzeilen)
+ufw deny out 25/tcp comment 'no-smtp' >/dev/null
+ok "Ausgehender Mail-Port 25 gesperrt"
 ufw default deny incoming >/dev/null
 ufw default allow outgoing >/dev/null
 ufw --force enable >/dev/null
