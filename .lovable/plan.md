@@ -29,3 +29,10 @@
 - Prüfbefehl für Sie: `curl -k https://<SERVER-IP>` von außen muss scheitern.
 
 Wichtig: Gegen Beschwerden über den **Inhalt** einer Seite hilft das Verstecken nur, wenn Cloudflare die Meldung nicht mit IP an den Hoster weitergibt (Punkt 3 oben).
+
+## Sicherheitsnetz: Besucher und Portal funktionieren weiter
+- Besucher erreichen die Seiten immer über Cloudflare – das bleibt erlaubt, für sie ändert sich nichts.
+- **Vor dem Abschotten prüfen:** Jede Landing-Domain muss in Cloudflare auf "Proxied" (orange Wolke) stehen. Eine Domain mit grauer Wolke wäre sonst nicht mehr erreichbar.
+- Das Portal (Hauptserver) darf weiter direkt auf den Landing-Server (Seiten veröffentlichen, Lebenszeichen, Umschaltung) – seine IP wird ausdrücklich freigegeben.
+- SSH bleibt offen, damit Sie sich weiter anmelden können.
+- Reihenfolge: erst prüfen, dann abschotten, danach sofort testen (Seite im Browser, Veröffentlichen aus dem Portal). Rückgängig machen geht mit einem Befehl (`ufw disable`).
