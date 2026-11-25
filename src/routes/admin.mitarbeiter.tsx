@@ -20,6 +20,9 @@ import { StageTimeline, type Stage } from "@/components/StageTimeline";
 import { toast } from "sonner";
 import { purgeInactivePeople, deleteEmployeeAccount, bulkDeleteEmployees } from "@/lib/admin-delete.functions";
 import { createEmployeeAccount } from "@/lib/admin-employees.functions";
+import { resetEmployeePassword } from "@/lib/employee-password.functions";
+import { generatePassword, MIN_PASSWORD_LENGTH } from "@/lib/employee-password";
+import { KeyRound } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { Mail } from "lucide-react";
 import { ComposeMailDialog } from "@/components/mail/ComposeMailDialog";
@@ -415,6 +418,7 @@ function AdminMitarbeiterPage() {
                             <Button variant="ghost" size="sm" onClick={() => setMailUserId(r.id)} className="h-7 gap-1 text-xs" title="E-Mail senden">
                               <Mail className="h-3 w-3" /> E-Mail
                             </Button>
+                            <ResetPasswordButton userId={r.id} name={r.name} email={r.email} />
                             <DeleteEmployeeButton userId={r.id} name={r.name} onDeleted={loadData} />
                           </div>
                         </td>
@@ -568,5 +572,59 @@ function DeleteEmployeeButton({ userId, name, onDeleted }: { userId: string; nam
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+function ResetPasswordButton({ userId, name, email }: { userId: string; name: string; email: string }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [pw, setPw] = useState("");
+  const [done, setDone] = useState(false);
+  const run = useServerFn(resetEmployeePassword);
+  async function save() {
+    setBusy(true);
+    try {
+      await run({ data: { user_id: userId, password: pw } });
+      setDone(true);
+      toast.success("Passwort geändert");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Passwort konnte nicht geändert werden");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (busy) return; setOpen(o); if (o) { setPw(generatePassword()); setDone(false); } }}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" title="Passwort zurücksetzen">
+          <KeyRound className="h-3 w-3" /> Passwort
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Passwort zurücksetzen</DialogTitle>
+          <DialogDescription>Neues Passwort für <b>{name}</b> ({email}). Das alte Passwort gilt danach nicht mehr.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor={`pw-${userId}`}>Neues Passwort</Label>
+          <div className="flex gap-2">
+            <Input id={`pw-${userId}`} value={pw} onChange={(e) => { setPw(e.target.value); setDone(false); }} disabled={busy} />
+            <Button type="button" variant="outline" onClick={() => { setPw(generatePassword()); setDone(false); }} disabled={busy}>Neu</Button>
+            <Button type="button" variant="outline" size="icon" title="Kopieren" onClick={() => { navigator.clipboard.writeText(pw); toast.success("Kopiert"); }}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {done ? "Gespeichert. Teilen Sie dem Mitarbeiter das neue Passwort mit." : `Mindestens ${MIN_PASSWORD_LENGTH} Zeichen.`}
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>{done ? "Schließen" : "Abbrechen"}</Button>
+          {!done && (
+            <Button onClick={save} disabled={busy || pw.length < MIN_PASSWORD_LENGTH}>{busy ? "Speichert…" : "Passwort speichern"}</Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
