@@ -23,6 +23,7 @@ import {
   CreditCard, ShieldCheck, BriefcaseBusiness, Pencil, Check, Loader2,
 } from "lucide-react";
 import { TableSkeleton } from "@/components/SkeletonLoaders";
+import { NewPasswordCard } from "@/components/admin/NewPasswordCard";
 import { StageHistoryCard } from "@/components/StageHistoryCard";
 import { AppointmentHistory } from "@/components/AppointmentHistory";
 
@@ -516,6 +517,7 @@ function PersonDetailPage() {
       </Card>
 
       {(prof?.id || app?.id) && <ComposeMailDialog open={mailOpen} onOpenChange={setMailOpen} profileId={prof?.id} applicationId={prof?.id ? undefined : app?.id} onSent={() => setMailReload((n) => n + 1)} />}
+      {prof?.user_id && <NewPasswordCard userId={prof.user_id} name={name} />}
       <PersonMailsCard applicationId={app?.id} profileId={prof?.id} reload={mailReload} />
       {app?.id && (
         <StageHistoryCard applicationId={app.id} canTakeover={onboardingDone} />

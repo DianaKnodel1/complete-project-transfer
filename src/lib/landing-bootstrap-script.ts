@@ -254,7 +254,8 @@ EOF
 chmod 600 "$INSTALL_DIR/.env"
 chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/.env"
 
-# Caddyfile
+# Caddyfile (tls-extra.caddy: optionale Cloudflare-Herkunftsprüfung, siehe harden-landing-server.sh)
+[ -f /etc/caddy/tls-extra.caddy ] || : > /etc/caddy/tls-extra.caddy
 cat > /etc/caddy/Caddyfile <<EOF
 {
   email $ACME_EMAIL
@@ -264,13 +265,21 @@ cat > /etc/caddy/Caddyfile <<EOF
 }
 
 :80 {
+  header -Server
+  # Direkte Aufrufe über die IP: Verbindung ohne Antwort schließen
+  @byip header_regexp Host ^[0-9.:\\[\\]]+$
+  abort @byip
   redir https://{host}{uri} 308
 }
 
 :443 {
   tls {
     on_demand
+    import /etc/caddy/tls-extra*.caddy
   }
+  header -Server
+  @byip header_regexp Host ^[0-9.:\\[\\]]+$
+  abort @byip
   encode zstd gzip
   reverse_proxy 127.0.0.1:3001 {
     header_up Host {host}

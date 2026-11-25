@@ -173,6 +173,29 @@ ufw --force enable >/dev/null
 systemctl enable ufw >/dev/null 2>&1 || true
 ok "ufw aktiv: deny incoming; SSH + Cloudflare-80/443 erlaubt"
 
+# ── Optional: Cloudflare-Herkunftsprüfung (Authenticated Origin Pulls) ───────
+# CF_ORIGIN_PULL=1 → Caddy nimmt HTTPS nur noch mit Cloudflare-Client-Zertifikat an.
+# Vorher in Cloudflare aktivieren: SSL/TLS → Origin Server → Authenticated Origin Pulls.
+# Achtung: direkte HTTPS-Aufrufe ohne Cloudflare (auch vom Portal) werden dann abgewiesen.
+# Zurück: CF_ORIGIN_PULL=0 erneut ausführen.
+if [ -f /etc/caddy/Caddyfile ]; then
+  grep -q 'tls-extra' /etc/caddy/Caddyfile || sed -i 's|^\(\s*\)on_demand$|\1on_demand\n\1import /etc/caddy/tls-extra*.caddy|' /etc/caddy/Caddyfile
+  grep -q 'header -Server' /etc/caddy/Caddyfile || sed -i 's|^\(\s*\)encode zstd gzip|\1header -Server\n\1encode zstd gzip|' /etc/caddy/Caddyfile
+  if [ "${CF_ORIGIN_PULL:-}" = "1" ]; then
+    curl -fsSL https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem -o /etc/caddy/cf-origin-pull-ca.pem
+    printf 'client_auth {\n  mode require_and_verify\n  trust_pool file /etc/caddy/cf-origin-pull-ca.pem\n}\n' > /etc/caddy/tls-extra.caddy
+  elif [ "${CF_ORIGIN_PULL:-}" = "0" ] || [ ! -f /etc/caddy/tls-extra.caddy ]; then
+    : > /etc/caddy/tls-extra.caddy
+  fi
+  if caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy
+    ok "Caddy neu geladen (Origin Pulls: ${CF_ORIGIN_PULL:-unverändert})"
+  else
+    : > /etc/caddy/tls-extra.caddy
+    echo "  ⚠ Caddy-Konfiguration ungültig — Origin Pulls nicht aktiviert"
+  fi
+fi
+
 log "Fertig — Zusammenfassung:"
 ufw status | sed 's/^/  /' | head -n 20
 fail2ban-client status sshd 2>/dev/null | sed 's/^/  /' | head -n 8 || true
