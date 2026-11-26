@@ -124,10 +124,41 @@ im Repo.
 
 ---
 
+## Update-Deploy auf dem bestehenden Portal-Server (Daten bleiben)
+
+Nur Code aktualisieren, Datenbank unangetastet lassen:
+
+```bash
+cd /opt/apps/portal && bash scripts/deploy.sh
+```
+
+`deploy.sh` holt den Code aus `https://github.com/DianaKnodel1/complete-project-transfer.git`,
+baut ihn, schaltet die neue Version scharf und startet den Dienst neu. Es werden
+ausschließlich neue Migrations-Dateien aus `supabase/manual-migrations` nachgezogen
+(`.deploy-migrations-applied` merkt welche); es gibt kein `DROP`, `TRUNCATE` oder
+`db reset`. Bestehende Daten bleiben erhalten.
+
+Das Repo ist privat. Der Server braucht einmalig Lesezugriff:
+
+```bash
+GITHUB_TOKEN=<token-mit-lesezugriff> bash scripts/set-git-token.sh
+```
+
+Vor dem Deploy prüfen, dass keine lokalen Server-Änderungen verloren gehen:
+
+```bash
+cd /opt/apps/portal && git status --short
+```
+
+`deploy.sh` macht `git reset --hard` — ungecommittete Änderungen auf dem Server
+würden dabei überschrieben.
+
+---
+
 ## Phase 3 — Neuen Portal-Server aufbauen
 
 ```bash
-git clone https://github.com/DianaKnodel1/complete-project-transfer.git /opt/apps/portal
+ git clone https://github.com/DianaKnodel1/complete-project-transfer.git /opt/apps/portal
 cd /opt/apps/portal
 bash scripts/setup-server2.sh
 ```
