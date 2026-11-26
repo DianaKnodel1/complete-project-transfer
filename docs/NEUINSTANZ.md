@@ -20,7 +20,7 @@ Die bestehende Instanz (api.mb-portal.com) wird nicht berührt.
 
 ```bash
 ssh root@190.97.165.55
-git clone <REPO-URL> /opt/apps/portal && cd /opt/apps/portal
+git clone https://github.com/DianaKnodel1/complete-project-transfer.git /opt/apps/portal && cd /opt/apps/portal
 PORTAL_DOMAIN=portal.neue-domain.de \
 API_DOMAIN=api.neue-domain.de \
 WEBID_DOMAIN=webid.neue-domain.de \
@@ -45,7 +45,7 @@ Mail-Versand (SMTP / Resend) danach im Admin-Bereich des Portals eintragen.
 
 ```bash
 ssh root@190.97.165.56
-git clone <REPO-URL> /opt/apps/portal && cd /opt/apps/portal
+git clone https://github.com/DianaKnodel1/complete-project-transfer.git /opt/apps/portal && cd /opt/apps/portal
 cp scripts/backup-orchestrator.neuinstanz.env.example scripts/backup-orchestrator.env
 age-keygen -o key.txt     # Zeile "age1..." in AGE_PUBLIC_KEY eintragen,
                           # key.txt in den Passwortmanager, dann: rm key.txt
