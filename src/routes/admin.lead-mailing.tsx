@@ -84,7 +84,7 @@ function LeadMailingPage() {
     const s = isPool ? (data.pool ? { ...data.pool, tenant_id: POOL } : null) : data.settings.find((x: Settings) => x.tenant_id === tenantId);
     setForm(s ?? {
       tenant_id: tenantId, active: false, sender_email: "", sender_name: "", subject: isPool ? DEFAULT_POOL_SUBJECT : DEFAULT_LEAD_SUBJECT,
-      body: isPool ? DEFAULT_POOL_BODY : DEFAULT_LEAD_BODY, homepage_url: "", calendly_url: "", daily_limit: 50,
+      body: isPool ? DEFAULT_POOL_BODY : DEFAULT_LEAD_BODY, homepage_url: "", calendly_url: "", daily_limit: 75,
     });
     setCsv(null);
   }, [data, tenantId]);
@@ -132,7 +132,7 @@ function LeadMailingPage() {
       await saveSettingsFn({ data: {
         ...form, sender_email: clean(form.sender_email), sender_name: clean(form.sender_name), subject: clean(form.subject),
         body: clean(form.body), homepage_url: clean(form.homepage_url), calendly_url: clean(form.calendly_url),
-        daily_limit: Number(form.daily_limit) || 50,
+        daily_limit: Number(form.daily_limit) || 75,
         sig_name: clean(form.sig_name ?? null), sig_position: clean(form.sig_position ?? null), sig_phone: clean(form.sig_phone ?? null),
         sig_website: clean(form.sig_website ?? null), sig_color: clean(form.sig_color ?? null),
       } });
@@ -279,7 +279,7 @@ function LeadMailingPage() {
                 <Input placeholder="https://calendly.com/…" value={form.calendly_url ?? ""} onChange={(e) => setForm({ ...form, calendly_url: e.target.value })} /></div>
               <div className="space-y-1"><Label>Tageslimit</Label>
                 <Input type="number" min={1} max={2000} value={form.daily_limit} onChange={(e) => setForm({ ...form, daily_limit: Number(e.target.value) })} />
-                <p className="text-xs text-muted-foreground">Neue Domain: Woche 1 → 50, danach wöchentlich verdoppeln bis 500.</p></div>
+                <p className="text-xs text-muted-foreground">Standard: 75 Mails pro Tag und Absender, verteilt von 6 bis 24 Uhr.</p></div>
             </div>
             <div className="space-y-1"><Label>Betreff</Label>
               <Input value={form.subject ?? ""} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>

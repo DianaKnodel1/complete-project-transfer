@@ -127,7 +127,7 @@ export function renderLeadTemplate(tpl: string, vars: TemplateVars): string {
 }
 
 /**
- * Wie viele Mails dürfen JETZT noch raus? Versand nur 08–20 Uhr (Berlin),
+ * Wie viele Mails dürfen JETZT noch raus? Versand nur 06–24 Uhr (Berlin),
  * gleichmäßig über das Fenster verteilt, nie mehr als das Tageslimit.
  */
 export function allowedToSendNow(dailyLimit: number, sentToday: number, now: Date = new Date()): number {
@@ -135,7 +135,7 @@ export function allowedToSendNow(dailyLimit: number, sentToday: number, now: Dat
   const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
   const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
   const minutes = h * 60 + m;
-  const start = 8 * 60, end = 20 * 60;
+  const start = 6 * 60, end = 24 * 60;
   if (minutes < start || minutes >= end) return 0;
   const fraction = (minutes - start + 10) / (end - start);
   const target = Math.min(dailyLimit, Math.ceil(dailyLimit * Math.min(1, fraction)));

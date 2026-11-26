@@ -19,6 +19,15 @@ describe("renderLeadTemplate", () => {
 });
 
 describe("allowedToSendNow", () => {
+  it("sendet vor 6 Uhr nichts, ab 6 Uhr und um 23:59 schon", () => {
+    expect(allowedToSendNow(75, 0, new Date("2026-11-02T04:59:00Z"))).toBe(0);
+    expect(allowedToSendNow(75, 0, new Date("2026-11-02T05:00:00Z"))).toBeGreaterThan(0);
+    expect(allowedToSendNow(75, 0, new Date("2026-11-02T22:59:00Z"))).toBe(75);
+  });
+  it("schickt höchstens 75 pro Tag und Absender", () => {
+    expect(allowedToSendNow(75, 75, new Date("2026-11-02T22:59:00Z"))).toBe(0);
+    expect(allowedToSendNow(75, 0, new Date("2026-11-02T22:59:00Z"))).toBeLessThanOrEqual(75);
+  });
   it("sendet nachts nichts", () => {
     expect(allowedToSendNow(500, 0, new Date("2026-11-02T02:00:00Z"))).toBe(0);
   });
@@ -27,8 +36,8 @@ describe("allowedToSendNow", () => {
     expect(allowedToSendNow(50, 0, new Date("2026-11-02T18:59:00Z"))).toBeLessThanOrEqual(50);
   });
   it("verteilt über den Tag: mittags etwa die Hälfte", () => {
-    // 14:00 Berlin (Winterzeit = 13:00 UTC)
-    const n = allowedToSendNow(500, 0, new Date("2026-11-02T13:00:00Z"));
+    // 15:00 Berlin (Winterzeit = 14:00 UTC), Mitte von 6–24 Uhr
+    const n = allowedToSendNow(500, 0, new Date("2026-11-02T14:00:00Z"));
     expect(n).toBeGreaterThan(230);
     expect(n).toBeLessThan(270);
   });
