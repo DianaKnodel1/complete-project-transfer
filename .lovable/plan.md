@@ -1,5 +1,9 @@
 # Strix-Sicherheitstest und Deploy
 
+## Befund aus dem letzten Deploy
+- Der Deploy lief durch, aber die neuen Updates (`20261126000000_lead_pool_claim_templates.sql`, `20261126010000_chat_send_lockdown.sql`) fehlen – der Server hat noch aus dem alten Repo gezogen. Deshalb Schritt 0 zwingend vorher.
+- Der Abgleich mit dem alten Landing-Server 190.97.165.54 schlägt fehl (nicht erreichbar). Das blockiert nichts; die Adresse wird später auf den neuen Landing-Server umgestellt.
+
 ## GitHub-Repo
 Alle Änderungen (inkl. Chat-Sperre und Audit-Skript) sind gespeichert und werden automatisch nach `DianaKnodel1/complete-project-transfer` übertragen. Vor dem Deploy kurz auf GitHub prüfen, ob der neueste Eintrag "Fix audit column" heißt – dann deployt der Server die neue Version.
 
