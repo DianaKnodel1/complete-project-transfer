@@ -20,3 +20,17 @@ Das Portal verschickt Lead-Mails nicht sofort beim Einschalten. Ein Zeitplan auf
 - Jeder Lauf speichert Zeitpunkt und Ergebnis in `lead_pool_settings`/`lead_mail_settings` (zusätzliche Spalten `last_run_at` und `last_run_result`, nur hinzufügende Migration).
 - Der Admin-Knopf ruft `runLeadMailingCycle` über eine geschützte Server-Funktion mit Admin-Prüfung auf.
 - Ein Test prüft, dass auch ein Lauf von Hand nicht mehr als 75 Mails pro Absender und Tag und nichts außerhalb von 6–24 Uhr verschickt.
+
+# Backup-Server wieder frei machen
+
+## Sofort (du auf dem Backup-Server, nichts wird blind gelöscht)
+1. Ansehen, was Platz frisst: `df -h` und `du -sh <BACKUP_DIR>/* | sort -h`
+2. Halb fertige Läufe entfernen, sie sind nie vollständig: `rm -rf <BACKUP_DIR>/daily/.run-*`
+3. Alte Tages-Backups löschen, die 3 neuesten bleiben:
+   `ls -1t <BACKUP_DIR>/daily/portal-*.tar.gz | tail -n +4 | xargs -r rm -f` (dazu die passenden `.sha256`)
+4. Bei Bedarf Monats-Backups bis auf das neueste löschen, außerdem alte Logs.
+5. `df -h` zeigt danach den freien Platz. Dann einen Backup-Lauf von Hand starten.
+
+## Damit es nicht wieder voll läuft
+- Bisher bleiben 14 Tages- und 92 Tage Monats-Backups liegen. Der Backup-Lauf löscht künftig zuerst das Älteste, wenn die Platte über 80 % voll ist, und lässt mindestens 3 Backups stehen. Erst danach legt er ein neues an.
+- Halb fertige `.run-*`-Ordner aus abgebrochenen Läufen werden bei jedem Start aufgeräumt.
