@@ -1,5 +1,5 @@
 // Serverseitiger Lead-Versand über Resend + Verarbeitung der Resend-Webhooks.
-import { mailAddressVariants, resolveTenantFromRecipient } from "./lead-mailing";
+import { berlinStartOfDay, mailAddressVariants, resolveTenantFromRecipient } from "./lead-mailing";
 import {
   leadAllowance,
   renderLeadTemplate,
@@ -125,8 +125,7 @@ export async function runLeadMailingCycle(now = new Date(), opts: { manual?: boo
     db.from("lead_pool_settings").select("*").eq("id", 1).eq("active", true).maybeSingle(),
   ]);
   const buckets: Bucket[] = [...(settings ?? []), ...(pool ? [{ ...pool, tenant_id: null }] : [])];
-  const startOfDay = new Date(now);
-  startOfDay.setUTCHours(0, 0, 0, 0);
+  const startOfDay = berlinStartOfDay(now);
   const results: any[] = [];
   let rateLimited = false;
 

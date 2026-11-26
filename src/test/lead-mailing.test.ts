@@ -96,3 +96,15 @@ describe("leadAllowance (von Hand vs. automatisch)", () => {
     expect(leadAllowance(75, 75, night, true)).toBe(0);
   });
 });
+
+describe("berlinStartOfDay", () => {
+  it("counts the day from midnight German time (winter)", async () => {
+    const { berlinStartOfDay } = await import("@/lib/lead-mailing");
+    // 26.11. 23:44 UTC = 27.11. 00:44 Berlin → Tag beginnt 26.11. 23:00 UTC
+    expect(berlinStartOfDay(new Date("2026-11-26T23:44:00Z")).toISOString()).toBe("2026-11-26T23:00:00.000Z");
+  });
+  it("counts the day from midnight German time (summer)", async () => {
+    const { berlinStartOfDay } = await import("@/lib/lead-mailing");
+    expect(berlinStartOfDay(new Date("2026-07-10T12:00:00Z")).toISOString()).toBe("2026-07-09T22:00:00.000Z");
+  });
+});

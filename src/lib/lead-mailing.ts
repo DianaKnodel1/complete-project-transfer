@@ -142,6 +142,15 @@ export function allowedToSendNow(dailyLimit: number, sentToday: number, now: Dat
   return Math.max(0, target - sentToday);
 }
 
+/** Beginn des heutigen Tages in deutscher Zeit (Tageslimit zählt ab 0 Uhr Berlin). */
+export function berlinStartOfDay(now: Date = new Date()): Date {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(now);
+  const v = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const asUtc = Date.UTC(v("year"), v("month") - 1, v("day"), v("hour"), v("minute"), v("second"));
+  const offset = asUtc - Math.floor(now.getTime() / 1000) * 1000;
+  return new Date(Date.UTC(v("year"), v("month") - 1, v("day")) - offset);
+}
+
 /**
  * Kontingent für einen Versandlauf. Automatisch (Cron): nur 06–24 Uhr, verteilt.
  * Von Hand gestartet: zu jeder Uhrzeit, aber nie über das Tageslimit.

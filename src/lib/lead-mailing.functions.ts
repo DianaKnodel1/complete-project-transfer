@@ -1,4 +1,4 @@
-import { matchMailsToPeople, type MailPerson } from "@/lib/lead-mailing";
+import { berlinStartOfDay, matchMailsToPeople, type MailPerson } from "@/lib/lead-mailing";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -39,7 +39,7 @@ export const getLeadMailingOverview = createServerFn({ method: "POST" })
     const { data: pool } = await db.from("lead_pool_settings").select("*").eq("id", 1).maybeSingle();
     const { sentTodayFor } = await import("@/lib/lead-mailing.server");
     const { sendHealth } = await import("@/lib/lead-mailing");
-    const startOfDay = new Date(); startOfDay.setUTCHours(0, 0, 0, 0);
+    const startOfDay = berlinStartOfDay();
     const statusCounts: Record<string, Record<string, number>> = {};
     const control: any[] = [];
     const buckets: { key: string; tenantId: string | null; name: string; s: any }[] = [
