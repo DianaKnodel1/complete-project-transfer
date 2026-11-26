@@ -34,3 +34,8 @@ Das Portal verschickt Lead-Mails nicht sofort beim Einschalten. Ein Zeitplan auf
 ## Damit es nicht wieder voll läuft
 - Bisher bleiben 14 Tages- und 92 Tage Monats-Backups liegen. Der Backup-Lauf löscht künftig zuerst das Älteste, wenn die Platte über 80 % voll ist, und lässt mindestens 3 Backups stehen. Erst danach legt er ein neues an.
 - Halb fertige `.run-*`-Ordner aus abgebrochenen Läufen werden bei jedem Start aufgeräumt.
+
+## Ergänzung Lead-Versand (Befund)
+- In der Datenbank steht der Versand bei allen Firmen auf aus, obwohl er in der Oberfläche auf aktiv gestellt wurde. Für Leads ohne Firma gibt es keine Einstellungen.
+- Der Schalter „Versand aktiv“ speichert künftig sofort beim Umlegen und zeigt eine Bestätigung oder den Fehler an. Er springt zurück, wenn das Speichern scheitert.
+- Die Seite liest den Zustand nach dem Speichern neu aus der Datenbank, damit immer der echte Stand zu sehen ist.
