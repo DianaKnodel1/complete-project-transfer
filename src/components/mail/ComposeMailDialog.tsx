@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { getMailComposeContext, searchMailRecipients, sendPortalMail, resolveRecipientByEmail } from "@/lib/lead-mailing.functions";
-import { MAIL_TEMPLATES } from "@/lib/mail-template";
+import { MailTemplatePicker } from "@/components/mail/MailTemplatePicker";
 import { MAIL_BLOCK_PREFIX } from "@/lib/lead-mailing";
 import { AttachmentPicker, type PendingAttachment } from "@/components/mail/MailAttachments";
 async function sendWithOverride(fn: (o: boolean) => Promise<unknown>) {
@@ -88,12 +88,6 @@ export function ComposeMailDialog({ open, onOpenChange, profileId, userId, appli
   const sender = useMemo(() => senders.find((s) => s.tenant_id === tenantId), [senders, tenantId]);
   const firstName = (recipient?.name ?? "").split(" ")[0] ?? "";
 
-  const applyTemplate = (id: string) => {
-    const t = MAIL_TEMPLATES.find((x) => x.id === id);
-    if (!t) return;
-    setSubject(t.subject);
-    setText(t.body.replace("{Vorname}", firstName || "").replace("Guten Tag ,", "Guten Tag,"));
-  };
 
   const send = async () => {
     if (!recipient?.email || !tenantId) return;
@@ -180,11 +174,9 @@ export function ComposeMailDialog({ open, onOpenChange, profileId, userId, appli
               </button>
             </div>
             <div className="space-y-1.5 min-w-0">
-              <Label htmlFor="mail-template">Vorlage</Label>
-              <select id="mail-template" className="h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm" defaultValue="" onChange={(e) => applyTemplate(e.target.value)}>
-                <option value="">Keine Vorlage</option>
-                {MAIL_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-              </select>
+              <Label>Vorlage</Label>
+              <MailTemplatePicker tenantId={tenantId || null} vars={{ Vorname: firstName, Nachname: (recipient?.name ?? "").split(" ").slice(1).join(" "), Firma: sender?.name ?? "" }}
+                onApply={(subj, body) => { setSubject(subj); setText(body); }} />
             </div>
           </div>
           <div className="space-y-1.5">

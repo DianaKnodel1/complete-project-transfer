@@ -6,6 +6,9 @@ import {
   isUnsubscribeReply,
   DEFAULT_LEAD_BODY,
   DEFAULT_LEAD_SUBJECT,
+  DEFAULT_POOL_BODY,
+  DEFAULT_POOL_SUBJECT,
+  splitBatchDuplicates,
 } from "./lead-mailing";
 
 const RESEND_API = "https://api.resend.com";
@@ -83,41 +86,70 @@ export function fromHeader(name: string | null, email: string) {
   return n ? `"${n}" <${email}>` : email;
 }
 
-/** Ein Versandlauf (Cron alle 10 Minuten). */
+/** Absender-Einstellungen eines Versand-Topfs: eine Firma oder „Ohne Firma“ (tenant_id null). */
+type Bucket = {
+  tenant_id: string | null; sender_email: string | null; sender_name: string | null; subject: string | null; body: string | null;
+  homepage_url: string | null; calendly_url: string | null; daily_limit: number;
+  sig_name?: string | null; sig_position?: string | null; sig_phone?: string | null; sig_website?: string | null; sig_color?: string | null;
+};
+
+/** Heute schon gesendet – Firma: alle ausgehenden Mails; ohne Firma: automatisch versendete Leads. */
+export async function sentTodayFor(db: any, tenantId: string | null, startOfDay: Date): Promise<number> {
+  if (tenantId) {
+    const { count } = await db.from("lead_messages").select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId).eq("direction", "out").gte("created_at", startOfDay.toISOString());
+    return count ?? 0;
+  }
+  const { count } = await db.from("applications").select("id", { count: "exact", head: true })
+    .is("tenant_id", null).not("lead_source", "is", null).gte("lead_mail_sent_at", startOfDay.toISOString());
+  return count ?? 0;
+}
+
+/** Ein Versandlauf (Cron alle 10 Minuten). Leads werden vor dem Senden fest reserviert. */
 export async function runLeadMailingCycle(now = new Date()) {
   const db = await admin();
   const { apiKey } = await loadResendConfig();
   if (!apiKey) return { skipped: "no_resend_key" };
 
-  const { data: settings } = await db.from("lead_mail_settings").select("*").eq("active", true);
+  const [{ data: settings }, { data: pool }] = await Promise.all([
+    db.from("lead_mail_settings").select("*").eq("active", true),
+    db.from("lead_pool_settings").select("*").eq("id", 1).eq("active", true).maybeSingle(),
+  ]);
+  const buckets: Bucket[] = [...(settings ?? []), ...(pool ? [{ ...pool, tenant_id: null }] : [])];
   const startOfDay = new Date(now);
   startOfDay.setUTCHours(0, 0, 0, 0);
   const results: any[] = [];
+  let rateLimited = false;
 
-  for (const s of settings ?? []) {
+  for (const s of buckets) {
+    if (rateLimited) break;
     if (!s.sender_email) continue;
-    const { count: sentToday } = await db
-      .from("lead_messages").select("id", { count: "exact", head: true })
-      .eq("tenant_id", s.tenant_id).eq("direction", "out").gte("created_at", startOfDay.toISOString());
-    const allowed = Math.min(25, allowedToSendNow(s.daily_limit, sentToday ?? 0, now));
+    const sentToday = await sentTodayFor(db, s.tenant_id, startOfDay);
+    const allowed = Math.min(25, allowedToSendNow(s.daily_limit, sentToday, now));
     if (allowed <= 0) { results.push({ tenant: s.tenant_id, sent: 0 }); continue; }
 
-    const { data: tenant } = await db.from("tenants").select("name").eq("id", s.tenant_id).maybeSingle();
-    const { data: leads } = await db
-      .from("applications").select("id, email, first_name, last_name, full_name")
-      .eq("tenant_id", s.tenant_id).eq("lead_mail_status", "pending")
-      .order("created_at", { ascending: true }).limit(allowed);
+    const { data: claimed, error: claimErr } = await db.rpc("claim_lead_batch", { p_tenant: s.tenant_id, p_limit: allowed });
+    if (claimErr) throw new Error(`Leads konnten nicht reserviert werden: ${claimErr.message}`);
+    const { unique, duplicates } = splitBatchDuplicates((claimed ?? []) as any[]);
+    if (duplicates.length) {
+      await db.from("applications").update({ lead_mail_status: "duplicate", lead_mail_error: "Adresse wurde bereits angeschrieben." }).in("id", duplicates);
+    }
 
-    const signature = await loadSignature(s.tenant_id, s.sender_email);
+    const tenant = s.tenant_id ? (await db.from("tenants").select("name").eq("id", s.tenant_id).maybeSingle()).data : null;
+    const signature: MailSignature = s.tenant_id ? await loadSignature(s.tenant_id, s.sender_email) : {
+      company: null, name: s.sig_name || s.sender_name, position: s.sig_position ?? null, phone: s.sig_phone ?? null,
+      email: s.sender_email, website: s.sig_website ?? null, color: s.sig_color ?? null,
+    };
     let sent = 0;
-    for (const lead of leads ?? []) {
+    for (let i = 0; i < unique.length; i++) {
+      const lead = unique[i];
       const vars = {
         Vorname: lead.first_name ?? "", Nachname: lead.last_name ?? "",
         Firma: tenant?.name ?? "", Homepage: s.homepage_url ?? "", Calendly: s.calendly_url ?? "",
         Absender: s.sender_name ?? "",
       };
-      const subject = renderLeadTemplate(s.subject || DEFAULT_LEAD_SUBJECT, vars);
-      const text = renderLeadTemplate(s.body || DEFAULT_LEAD_BODY, vars);
+      const subject = renderLeadTemplate(s.subject || (s.tenant_id ? DEFAULT_LEAD_SUBJECT : DEFAULT_POOL_SUBJECT), vars);
+      const text = renderLeadTemplate(s.body || (s.tenant_id ? DEFAULT_LEAD_BODY : DEFAULT_POOL_BODY), vars);
       try {
         const r = await sendViaResend({
           apiKey, from: fromHeader(s.sender_name, s.sender_email), to: lead.email, subject, text,
@@ -133,11 +165,17 @@ export async function runLeadMailingCycle(now = new Date()) {
       } catch (e: any) {
         const msg = String(e?.message ?? e).slice(0, 500);
         console.warn("[lead-mailing] send failed", lead.id, msg);
+        if (/Resend 429/.test(msg)) {
+          // Resend bremst: nichts verloren – dieser und alle übrigen reservierten Leads warten auf den nächsten Lauf.
+          const rest = unique.slice(i).map((l: any) => l.id);
+          await db.from("applications").update({ lead_mail_status: "pending", lead_mail_error: "Resend: zu viele Anfragen – wird später erneut versucht." }).in("id", rest);
+          rateLimited = true;
+          break;
+        }
         await db.from("applications").update({ lead_mail_status: "failed", lead_mail_error: msg }).eq("id", lead.id);
-        if (/Resend 429/.test(msg)) break;
       }
     }
-    results.push({ tenant: s.tenant_id, sent });
+    results.push({ tenant: s.tenant_id, sent, rateLimited });
   }
   return { results };
 }

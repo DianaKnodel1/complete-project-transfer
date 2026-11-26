@@ -16,6 +16,49 @@ Freundliche Grüße
 {Absender}
 {Firma}`;
 
+/** Häufige Tippfehler am Ende (z. B. „.come“ aus Facebook-Formularen) korrigieren. */
+export function fixEmailTypos(email: string): string {
+  return email.trim().toLowerCase().replace(/\.(come|con|cmo|comm)$/, ".com").replace(/\.dee$/, ".de");
+}
+
+/** Telefonnummer bereinigen (Meta-Präfix „p:“, unsichtbare Zeichen). */
+export function cleanPhone(v: string): string | null {
+  const t = v.replace(/^p:/i, "").replace(/[\u200e\u200f\u202a-\u202e]/g, "").trim();
+  return t || null;
+}
+
+export const DEFAULT_POOL_SUBJECT = "Ihre Bewerbung – nächster Schritt";
+export const DEFAULT_POOL_BODY = `Guten Tag {Vorname} {Nachname},
+
+vielen Dank für Ihre Bewerbung. Wir freuen uns, Ihnen mitzuteilen, dass Sie in die engere Auswahl aufgenommen wurden.
+
+Bitte registrieren Sie sich auf unserer Website {Homepage} und wählen Sie anschließend einen Termin für Ihr Gespräch: {Calendly}
+
+Bei Fragen antworten Sie einfach auf diese E-Mail.
+
+Freundliche Grüße
+{Absender}`;
+
+/** Gleiche Adresse mehrfach in einem Versandlauf → nur der erste wird gesendet. */
+export function splitBatchDuplicates<T extends { id: string; email: string }>(rows: T[]): { unique: T[]; duplicates: string[] } {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  const duplicates: string[] = [];
+  for (const r of rows) {
+    const k = String(r.email).trim().toLowerCase();
+    if (seen.has(k)) duplicates.push(r.id); else { seen.add(k); unique.push(r); }
+  }
+  return { unique, duplicates };
+}
+
+/** Ampel für die Versand-Kontrolle. */
+export function sendHealth(o: { sentToday: number; dailyLimit: number; sent: number; bounced: number; lastErrorRecent: boolean }): "green" | "yellow" | "red" {
+  const bounceRate = o.sent >= 20 ? o.bounced / o.sent : 0;
+  if (o.lastErrorRecent || bounceRate >= 0.05) return "red";
+  if (o.sentToday >= o.dailyLimit * 0.8 || bounceRate >= 0.02) return "yellow";
+  return "green";
+}
+
 const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/i;
 
 function splitCsvLine(line: string, sep: string): string[] {
@@ -47,7 +90,8 @@ const PHONE = ["telefon", "phone", "telefonnummer", "phonenumber", "mobil", "han
 export function parseLeadCsv(text: string): { rows: LeadRow[]; invalid: number; duplicates: number } {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return { rows: [], invalid: 0, duplicates: 0 };
-  const sep = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ";" : ",";
+  const cnt = (c: string) => lines[0].split(c).length - 1;
+  const sep = cnt("\t") > Math.max(cnt(";"), cnt(",")) ? "\t" : cnt(";") > cnt(",") ? ";" : ",";
   const header = splitCsvLine(lines[0], sep).map(norm);
   const idx = (names: string[]) => header.findIndex((h) => names.includes(h));
   const iFirst = idx(FIRST), iLast = idx(LAST), iFull = idx(FULL), iMail = idx(MAIL), iPhone = idx(PHONE);
@@ -57,7 +101,7 @@ export function parseLeadCsv(text: string): { rows: LeadRow[]; invalid: number; 
   let invalid = 0, duplicates = 0;
   for (const line of lines.slice(1)) {
     const cols = splitCsvLine(line, sep);
-    const email = (cols[iMail] ?? "").trim().toLowerCase();
+    const email = fixEmailTypos((cols[iMail] ?? "").trim().toLowerCase());
     if (!EMAIL_RE.test(email)) { invalid++; continue; }
     if (seen.has(email)) { duplicates++; continue; }
     seen.add(email);
@@ -68,7 +112,7 @@ export function parseLeadCsv(text: string): { rows: LeadRow[]; invalid: number; 
       firstName = parts.shift() ?? "";
       lastName = parts.join(" ");
     }
-    rows.push({ firstName: firstName.trim(), lastName: lastName.trim(), email, phone: iPhone >= 0 ? cols[iPhone]?.trim() || null : null });
+    rows.push({ firstName: firstName.trim(), lastName: lastName.trim(), email, phone: iPhone >= 0 ? cleanPhone(cols[iPhone] ?? "") : null });
   }
   return { rows, invalid, duplicates };
 }

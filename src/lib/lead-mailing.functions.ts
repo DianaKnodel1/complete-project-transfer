@@ -35,23 +35,50 @@ export const getLeadMailingOverview = createServerFn({ method: "POST" })
       db.from("lead_mail_settings").select("*"),
       db.from("lead_imports").select("*").order("created_at", { ascending: false }).limit(20),
     ]);
+    const STATUSES = ["pending", "sending", "sent", "failed", "bounced", "unsubscribed", "replied", "check", "duplicate"];
+    const { data: pool } = await db.from("lead_pool_settings").select("*").eq("id", 1).maybeSingle();
+    const { sentTodayFor } = await import("@/lib/lead-mailing.server");
+    const { sendHealth } = await import("@/lib/lead-mailing");
+    const startOfDay = new Date(); startOfDay.setUTCHours(0, 0, 0, 0);
     const statusCounts: Record<string, Record<string, number>> = {};
-    for (const t of tenants ?? []) {
+    const control: any[] = [];
+    const buckets: { key: string; tenantId: string | null; name: string; s: any }[] = [
+      { key: "pool", tenantId: null, name: "Ohne Firma", s: pool },
+      ...(tenants ?? []).map((t: any) => ({ key: t.id, tenantId: t.id, name: t.name, s: (settings ?? []).find((x: any) => x.tenant_id === t.id) })),
+    ];
+    await Promise.all(buckets.map(async (b) => {
       const counts: Record<string, number> = {};
-      for (const st of ["pending", "sent", "failed", "bounced", "unsubscribed", "replied"]) {
-        const { count } = await db.from("applications").select("id", { count: "exact", head: true })
-          .eq("tenant_id", t.id).eq("lead_mail_status", st);
+      await Promise.all(STATUSES.map(async (st) => {
+        let q = db.from("applications").select("id", { count: "exact", head: true }).eq("lead_mail_status", st);
+        q = b.tenantId ? q.eq("tenant_id", b.tenantId) : q.is("tenant_id", null).not("lead_source", "is", null);
+        const { count } = await q;
         counts[st] = count ?? 0;
-      }
-      statusCounts[t.id] = counts;
-    }
+      }));
+      statusCounts[b.key] = counts;
+      const total = Object.values(counts).reduce((n, v) => n + v, 0);
+      if (!b.s && !total) return;
+      let eq = db.from("applications").select("lead_mail_error, created_at").eq("lead_mail_status", "failed").order("created_at", { ascending: false }).limit(1);
+      eq = b.tenantId ? eq.eq("tenant_id", b.tenantId) : eq.is("tenant_id", null);
+      const [{ data: lastErr }, sentToday] = await Promise.all([eq, sentTodayFor(db, b.tenantId, startOfDay)]);
+      const dailyLimit = b.s?.daily_limit ?? 50;
+      const lastError = lastErr?.[0]?.lead_mail_error ?? null;
+      const lastErrorRecent = !!lastErr?.[0] && Date.now() - new Date(lastErr[0].created_at).getTime() < 86_400_000 && /Resend (4|5)\d\d/.test(String(lastError));
+      const sentTotal = (counts.sent ?? 0) + (counts.replied ?? 0) + (counts.bounced ?? 0) + (counts.unsubscribed ?? 0);
+      control.push({
+        key: b.key, name: b.name, active: !!b.s?.active, sentToday, dailyLimit, counts, lastError,
+        health: sendHealth({ sentToday, dailyLimit, sent: sentTotal, bounced: counts.bounced ?? 0, lastErrorRecent }),
+      });
+    }));
+    control.sort((a, b) => (a.key === "pool" ? -1 : b.key === "pool" ? 1 : a.name.localeCompare(b.name)));
     return {
       resendKeyMasked: mask(ss?.resend_api_key),
       webhookSecretMasked: mask(ss?.resend_webhook_secret),
       tenants: tenants ?? [],
       settings: settings ?? [],
+      pool: pool ?? null,
       imports: imports ?? [],
       statusCounts,
+      control,
     };
   });
 
@@ -82,7 +109,7 @@ export const saveResendAccess = createServerFn({ method: "POST" })
   });
 
 const SettingsInput = z.object({
-  tenant_id: z.string().uuid(),
+  tenant_id: z.union([z.string().uuid(), z.literal("pool")]),
   active: z.boolean(),
   sender_email: z.string().trim().email().max(200).nullable(),
   sender_name: z.string().trim().max(120).nullable(),
@@ -103,8 +130,10 @@ export const saveLeadMailSettings = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => SettingsInput.parse(i))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
-    const { data: rows, error } = await (context.supabase as any)
-      .from("lead_mail_settings").upsert({ ...data, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" }).select("tenant_id");
+    const { tenant_id, ...rest } = data;
+    const { data: rows, error } = tenant_id === "pool"
+      ? await (context.supabase as any).from("lead_pool_settings").upsert({ id: 1, ...rest, updated_at: new Date().toISOString() }, { onConflict: "id" }).select("id")
+      : await (context.supabase as any).from("lead_mail_settings").upsert({ ...data, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" }).select("tenant_id");
     if (error) {
       if (/column .* does not exist|schema cache/i.test(error.message)) throw new Error("Datenbank-Update fehlt (Postfach/Signatur). Bitte migrate.sh auf dem Backend ausführen.");
       throw new Error(error.message);
@@ -114,13 +143,40 @@ export const saveLeadMailSettings = createServerFn({ method: "POST" })
   });
 
 const ImportInput = z.object({
-  tenant_id: z.string().uuid(),
+  tenant_id: z.union([z.string().uuid(), z.literal("pool")]),
   file_name: z.string().max(300),
   rows: z.array(z.object({
     firstName: z.string().max(120), lastName: z.string().max(120),
     email: z.string().email().max(254), phone: z.string().max(60).nullable(),
   })).min(1).max(5000),
 });
+
+/** Adressen, die schon als Lead (egal welche Firma) oder als Bewerbung dieser Firma existieren. */
+async function existingLeadEmails(db: any, emails: string[], tenantId: string | null): Promise<Set<string>> {
+  const existing = new Set<string>();
+  for (let i = 0; i < emails.length; i += 200) {
+    const chunk = emails.slice(i, i + 200);
+    const [{ data: leads }, own] = await Promise.all([
+      db.from("applications").select("email").not("lead_source", "is", null).in("email", chunk),
+      tenantId ? db.from("applications").select("email").eq("tenant_id", tenantId).in("email", chunk) : Promise.resolve({ data: [] }),
+    ]);
+    for (const f of [...(leads ?? []), ...((own as any).data ?? [])]) existing.add(String(f.email).toLowerCase());
+  }
+  return existing;
+}
+
+export const checkLeadDuplicates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({
+    tenant_id: z.union([z.string().uuid(), z.literal("pool")]),
+    emails: z.array(z.string().max(254)).max(20000),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const set = await existingLeadEmails(supabaseAdmin as any, data.emails.map((e) => e.toLowerCase()), data.tenant_id === "pool" ? null : data.tenant_id);
+    return { existing: [...set] };
+  });
 
 export const importLeads = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -129,37 +185,103 @@ export const importLeads = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
-    const emails = data.rows.map((r) => r.email.toLowerCase());
-    const existing = new Set<string>();
-    for (let i = 0; i < emails.length; i += 200) {
-      const chunk = emails.slice(i, i + 200);
-      const { data: found } = await db.from("applications").select("email").eq("tenant_id", data.tenant_id).in("email", chunk);
-      for (const f of found ?? []) existing.add(String(f.email).toLowerCase());
-    }
-    const fresh = data.rows.filter((r) => !existing.has(r.email.toLowerCase()));
+    const tenantId = data.tenant_id === "pool" ? null : data.tenant_id;
+    const seen = new Set<string>();
+    const rows = data.rows.filter((r) => { const k = r.email.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+    const existing = await existingLeadEmails(db, rows.map((r) => r.email.toLowerCase()), tenantId);
+    const fresh = rows.filter((r) => !existing.has(r.email.toLowerCase()));
+    const source = tenantId ? "indeed" : "pool";
     const { data: imp, error: impErr } = await db.from("lead_imports").insert({
-      tenant_id: data.tenant_id, file_name: data.file_name, total: data.rows.length,
+      tenant_id: tenantId, file_name: data.file_name, total: data.rows.length,
       imported: fresh.length, skipped: data.rows.length - fresh.length, created_by: context.userId,
     }).select("id").single();
     if (impErr) throw new Error(impErr.message);
     for (let i = 0; i < fresh.length; i += 200) {
       const batch = fresh.slice(i, i + 200).map((r) => ({
-        tenant_id: data.tenant_id,
+        tenant_id: tenantId,
         email: r.email.toLowerCase(),
         first_name: r.firstName || null,
         last_name: r.lastName || null,
         full_name: [r.firstName, r.lastName].filter(Boolean).join(" ") || r.email,
         phone: r.phone,
-        source_slug: "indeed",
-        lead_source: "indeed",
+        source_slug: source,
+        lead_source: source,
         lead_mail_status: "pending",
         lead_import_id: imp.id,
-        message: "Indeed-Lead (CSV-Import)",
+        message: tenantId ? "Lead (Import)" : "Lead ohne Firma (Import)",
       }));
       const { error } = await db.from("applications").insert(batch);
       if (error) throw new Error(`Import abgebrochen nach ${i} Leads: ${error.message}`);
     }
     return { imported: fresh.length, skipped: data.rows.length - fresh.length };
+  });
+
+/** Test-Mail der Standard-Nachricht an eine eigene Adresse (zählt nicht als Lead). */
+export const sendLeadTestMail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({
+    to: z.string().trim().email().max(254),
+    tenant_id: z.union([z.string().uuid(), z.literal("pool")]),
+    sender_email: z.string().trim().email().max(200),
+    sender_name: z.string().trim().max(120).nullable(),
+    subject: z.string().trim().min(1).max(300),
+    text: z.string().trim().min(1).max(8000),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { loadResendConfig, sendViaResend, loadSignature, fromHeader } = await import("@/lib/lead-mailing.server");
+    const { apiKey } = await loadResendConfig();
+    if (!apiKey) throw new Error("Kein Resend-Schlüssel gespeichert.");
+    const signature = await loadSignature(data.tenant_id === "pool" ? null : data.tenant_id, data.sender_email);
+    await sendViaResend({ apiKey, from: fromHeader(data.sender_name, data.sender_email), to: data.to, subject: `[Test] ${data.subject}`, text: data.text, replyTo: data.sender_email, kind: "lead", signature });
+    return { ok: true };
+  });
+
+// ───────────── Mail-Vorlagen ─────────────
+
+export const listMailTemplates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({}).passthrough().parse(i ?? {}))
+  .handler(async ({ context }) => {
+    await requireMailAccess(context);
+    const { data, error } = await (context.supabase as any).from("mail_templates")
+      .select("id, tenant_id, name, subject, body, sort").order("sort").order("name");
+    if (error) {
+      if (/does not exist|schema cache/i.test(error.message)) return { templates: [], missing: true };
+      throw new Error(error.message);
+    }
+    return { templates: data ?? [], missing: false };
+  });
+
+export const saveMailTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({
+    id: z.string().uuid().nullable(),
+    tenant_id: z.string().uuid().nullable(),
+    name: z.string().trim().min(1).max(120),
+    subject: z.string().trim().max(300),
+    body: z.string().trim().max(8000),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const db = context.supabase as any;
+    const row = { tenant_id: data.tenant_id, name: data.name, subject: data.subject, body: data.body, updated_at: new Date().toISOString() };
+    const { data: rows, error } = data.id
+      ? await db.from("mail_templates").update(row).eq("id", data.id).select("id")
+      : await db.from("mail_templates").insert({ ...row, sort: 100 }).select("id");
+    if (error) throw new Error(error.message);
+    if (!rows?.length) throw new Error("Vorlage wurde nicht gespeichert – fehlende Berechtigung.");
+    return { id: rows[0].id as string };
+  });
+
+export const deleteMailTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { error } = await (context.supabase as any).from("mail_templates").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ───────────── Gemeinsames Postfach ─────────────

@@ -11,6 +11,7 @@ import { Link } from "@tanstack/react-router";
 import { AttachmentPicker, AttachmentList, type PendingAttachment } from "@/components/mail/MailAttachments";
 import { syncInbox, listMailThreads, getMailThread, setThreadHandled, sendPortalMail, getMailComposeContext } from "@/lib/lead-mailing.functions";
 import { ComposeMailDialog } from "@/components/mail/ComposeMailDialog";
+import { MailTemplatePicker } from "@/components/mail/MailTemplatePicker";
 import { CallAppointmentDialog } from "@/components/calls/CallDialogs";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarPlus } from "lucide-react";
@@ -257,6 +258,9 @@ function PostfachPage() {
                 ))}
               </div>
               <div className="space-y-2 border-t border-border pt-3">
+                <MailTemplatePicker tenantId={selected.tenant_id ?? (pickTenant || null)} keepSubject
+                  vars={{ Vorname: String(selected.name ?? "").split(" ")[0] ?? "", Nachname: String(selected.name ?? "").split(" ").slice(1).join(" "), Firma: senders.find((x) => x.tenant_id === (selected.tenant_id ?? pickTenant))?.name ?? "" }}
+                  onApply={(_s, body) => setText(body)} />
                 <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
                 <Textarea rows={6} placeholder="Antwort schreiben … (Signatur wird automatisch angehängt)" value={text} onChange={(e) => setText(e.target.value)} />
                 {!selected.tenant_id && (
