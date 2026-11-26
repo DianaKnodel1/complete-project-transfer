@@ -4,7 +4,7 @@
 - Alle 10 Minuten schaut das Portal je Firma nach Leads mit Status „wartet“ und schickt nur so viele, wie das **Tageslimit** erlaubt – gleichmäßig verteilt zwischen 8 und 20 Uhr, maximal 25 pro Durchgang.
 - Nach dem Senden wird der Lead auf „gesendet“ gesetzt und kommt nie wieder dran. Zusätzlich bekommt Resend pro Lead eine feste Kennung, damit Resend dieselbe Mail nicht zweimal annimmt.
 - Meldet Resend „zu viele“ (429), stoppt der Durchgang sofort. Zurückgekommene Mails und Abmeldungen werden gesperrt und nie wieder angeschrieben.
-- Beim Import werden Leads übersprungen, die es in dieser Firma schon gibt.
+- Beim Import werden Leads übersprungen, die es schon gibt. **Neu:** auch versehentlich mehrfach importierte Listen oder dieselbe Datei zweimal – jede E-Mail-Adresse wird nur einmal angelegt und nur einmal angeschrieben (Groß-/Kleinschreibung egal).
 
 **Schwachstelle, die ich behebe:** Laufen zwei Durchgänge zufällig gleichzeitig, könnten beide denselben Lead greifen. Neu wird jeder Lead vor dem Senden fest „reserviert“ – nur ein Durchgang kann ihn haben. Ein Lead, der beim Senden hängen bleibt, wird nicht automatisch nochmal geschickt, sondern als „prüfen“ markiert.
 
