@@ -24,3 +24,18 @@ Das heißt: Jemand hat Zugang zu einem Mitarbeiter-Konto oder konnte sich selbst
 
 ## Was ich von dir brauche
 Die Ausgabe von ein paar Abfragen, die ich dir gebe und die du auf dem Portal-Server ausführst (nur lesen).
+
+## Erster Befund aus dem Code
+- Jeder angemeldete Nutzer darf Chat-Nachrichten an **beliebige** Empfänger schicken. Geprüft wird nur, dass er selbst der Absender ist. Genau das hat "Acc2ToAcc1" getestet.
+- Neue Konten kann man sich ohne Einladung selbst anlegen. Mehrere Angreifer-Konten sind so leicht möglich.
+
+## Vollständiges Sicherheits-Audit (für die mehreren verdächtigen Konten)
+1. Alle verdächtigen Konten auflisten (Registrierung, IP, letzte Anmeldung, Nachrichten) und als Liste zum Sperren ausgeben.
+2. Ein Prüfskript mit zwei Test-Konten auf dem Server ausführen. Es versucht, fremde Daten zu lesen und zu ändern: Chat, Profile, Bewerbungen, Verträge, Dokumente, Postfach, Dateiablage, Live-Nachrichten, Admin-Funktionen. Jede Lücke landet im Bericht.
+3. Lücken schließen:
+   - Mitarbeiter dürfen nur noch an Admins oder an ihnen zugewiesene Anrufer schreiben.
+   - Live-Nachrichten nur für Beteiligte.
+   - Selbst-Registrierung nur noch über den Bewerbungsweg.
+   - Neue Konten bleiben gesperrt, bis ein Admin sie freigibt.
+4. Für jede Regel einen automatischen Test anlegen, der fehlschlägt, sobald die Lücke wieder aufgeht.
+5. Danach erneut prüfen und dir einen kurzen Bericht geben: was offen war, was jetzt zu ist, welche Konten gesperrt wurden.
