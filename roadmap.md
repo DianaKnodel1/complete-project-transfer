@@ -1,4 +1,5 @@
 # Roadmap
+- [ ] Sicherheits-Audit abschließen: vertiefte Code-Prüfung gestartet; wartet auf bestätigten aktuellen Deploy, tatsächlich aktive DB-Zugriffsregeln und Live-Tests mit zwei Testkonten auf dem eigenen Backend.
 - [x] Postfach: Anhänge senden und empfangen
 - [x] Chat-Liste: Aktive oben, Inaktive unten
 - [ ] Handy-Ansicht prüfen und verbessern (Login, Dashboard, Chat, Postfach, Mitarbeiter, Bewerber) – braucht eingeloggten Test auf dem eigenen Server
