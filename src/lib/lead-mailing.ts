@@ -142,6 +142,15 @@ export function allowedToSendNow(dailyLimit: number, sentToday: number, now: Dat
   return Math.max(0, target - sentToday);
 }
 
+/**
+ * Kontingent für einen Versandlauf. Automatisch (Cron): nur 06–24 Uhr, verteilt.
+ * Von Hand gestartet: zu jeder Uhrzeit, aber nie über das Tageslimit.
+ */
+export function leadAllowance(dailyLimit: number, sentToday: number, now: Date, manual: boolean): number {
+  if (manual) return Math.max(0, dailyLimit - sentToday);
+  return allowedToSendNow(dailyLimit, sentToday, now);
+}
+
 /** Abmeldewunsch in einer Antwort erkennen. */
 export function isUnsubscribeReply(subject: string, body: string): boolean {
   // Nur der neue Antworttext zählt, kein zitierter Verlauf.

@@ -65,7 +65,7 @@ export const getLeadMailingOverview = createServerFn({ method: "POST" })
       const lastErrorRecent = !!lastErr?.[0] && Date.now() - new Date(lastErr[0].created_at).getTime() < 86_400_000 && /Resend (4|5)\d\d/.test(String(lastError));
       const sentTotal = (counts.sent ?? 0) + (counts.replied ?? 0) + (counts.bounced ?? 0) + (counts.unsubscribed ?? 0);
       control.push({
-        key: b.key, name: b.name, active: !!b.s?.active, sentToday, dailyLimit, counts, lastError,
+        key: b.key, name: b.name, active: !!b.s?.active, lastRunAt: b.s?.last_run_at ?? null, lastRunResult: b.s?.last_run_result ?? null, sentToday, dailyLimit, counts, lastError,
         health: sendHealth({ sentToday, dailyLimit, sent: sentTotal, bounced: counts.bounced ?? 0, lastErrorRecent }),
       });
     }));
@@ -140,6 +140,17 @@ export const saveLeadMailSettings = createServerFn({ method: "POST" })
     }
     if (!rows?.length) throw new Error("Einstellungen wurden nicht gespeichert – fehlende Berechtigung.");
     return { ok: true };
+  });
+
+export const runLeadMailingNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { runLeadMailingCycle } = await import("@/lib/lead-mailing.server");
+    const r: any = await runLeadMailingCycle(new Date(), { manual: true });
+    if (r?.skipped === "no_resend_key") throw new Error("Kein Resend-Schlüssel gespeichert.");
+    const sent = (r?.results ?? []).reduce((n: number, x: any) => n + (x.sent ?? 0), 0);
+    return { sent, buckets: (r?.results ?? []).length };
   });
 
 const ImportInput = z.object({

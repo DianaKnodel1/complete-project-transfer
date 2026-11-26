@@ -162,6 +162,12 @@ cd "$PROJECT_DIR"
     log "  Bot-Runner: übersprungen (läuft auf separatem Bot-Server)"
   fi
 
+  # Lead-Versand-Zeitplan anlegen, falls er fehlt (ohne ihn geht keine Lead-Mail raus)
+  if [ -f "$PROJECT_DIR/scripts/setup-lead-cron.sh" ] && ! crontab -l 2>/dev/null | grep -q 'lead-mailing-cron'; then
+    log "Zusatz: Lead-Versand-Zeitplan einrichten..."
+    REPO_DIR="$PROJECT_DIR" bash "$PROJECT_DIR/scripts/setup-lead-cron.sh" || warn "Lead-Zeitplan nicht eingerichtet."
+  fi
+
   # Automatischer Sync nach .123 am Ende jedes Deploys
   if [ -f "$PROJECT_DIR/scripts/sync-to-backend.sh" ]; then
     log "Zusatz: Synchronisiere Backend-Status nach .123..."

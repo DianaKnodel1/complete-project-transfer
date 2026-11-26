@@ -85,3 +85,14 @@ describe("Firmen-Zuordnung eingehender Mails", () => {
   it("unbekannte Empfängeradresse ergibt keine Firma", () =>
     expect(resolveTenantFromRecipient(["x@fremd.de"], senders)).toBeNull());
 });
+
+import { leadAllowance } from "@/lib/lead-mailing";
+describe("leadAllowance (von Hand vs. automatisch)", () => {
+  const night = new Date("2026-11-26T23:30:00Z"); // 00:30 Berlin
+  it("automatisch nachts: nichts", () => expect(leadAllowance(75, 0, night, false)).toBe(0));
+  it("von Hand nachts: bis zum Tageslimit", () => expect(leadAllowance(75, 0, night, true)).toBe(75));
+  it("von Hand nie über 75 pro Tag", () => {
+    expect(leadAllowance(75, 70, night, true)).toBe(5);
+    expect(leadAllowance(75, 75, night, true)).toBe(0);
+  });
+});

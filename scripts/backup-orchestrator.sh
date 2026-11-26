@@ -43,7 +43,24 @@ BACKUP_MODE="${1:-full}"
 SSH_OPTS=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o BatchMode=yes)
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_DIR="${BACKUP_DIR}/daily/.run-${STAMP}"
-mkdir -p "$RUN_DIR" "${BACKUP_DIR}/monthly" "${BACKUP_DIR}/logs"
+mkdir -p "${BACKUP_DIR}/daily" "${BACKUP_DIR}/monthly" "${BACKUP_DIR}/logs"
+
+# Platz schaffen, bevor ein neues Backup entsteht: Reste abgebrochener Läufe weg,
+# dann älteste Archive löschen, solange die Platte zu voll ist – die neuesten
+# BACKUP_MIN_KEEP (Standard 3) Tages-Backups bleiben immer stehen.
+find "${BACKUP_DIR}/daily" -maxdepth 1 -type d -name '.run-*' -exec rm -rf {} + 2>/dev/null || true
+disk_used() { df -P "${BACKUP_DIR}" | awk 'NR==2 {gsub("%","",$5); print $5}'; }
+while [ "$(disk_used)" -ge "${DISK_ALERT_PERCENT:-80}" ]; do
+  oldest_monthly="$(ls -1tr "${BACKUP_DIR}/monthly"/portal-*.tar.gz* 2>/dev/null | grep -v '\.sha256$' | head -1 || true)"
+  if [ -n "$oldest_monthly" ] && [ "$(ls -1 "${BACKUP_DIR}/monthly"/portal-*.tar.gz* 2>/dev/null | grep -vc '\.sha256$')" -gt 1 ]; then
+    rm -f "$oldest_monthly" "${oldest_monthly}.sha256"; continue
+  fi
+  mapfile -t dailies < <(ls -1t "${BACKUP_DIR}/daily"/portal-*.tar.gz* 2>/dev/null | grep -v '\.sha256$' || true)
+  [ "${#dailies[@]}" -gt "${BACKUP_MIN_KEEP:-3}" ] || break
+  victim="${dailies[-1]}"
+  rm -f "$victim" "${victim}.sha256"
+done
+mkdir -p "$RUN_DIR"
 
 WARNINGS=()
 STATUS="error"

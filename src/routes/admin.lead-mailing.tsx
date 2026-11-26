@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload } from "lucide-react";
 import {
-  getLeadMailingOverview, saveResendAccess, saveLeadMailSettings, importLeads, checkLeadDuplicates, sendLeadTestMail,
+  getLeadMailingOverview, saveResendAccess, saveLeadMailSettings, importLeads, checkLeadDuplicates, sendLeadTestMail, runLeadMailingNow,
 } from "@/lib/lead-mailing.functions";
 import { renderMail } from "@/lib/mail-template";
 import { renderLeadTemplate, DEFAULT_LEAD_BODY, DEFAULT_LEAD_SUBJECT, DEFAULT_POOL_BODY, DEFAULT_POOL_SUBJECT, type LeadRow } from "@/lib/lead-mailing";
@@ -56,6 +56,7 @@ function LeadMailingPage() {
   const importFn = useServerFn(importLeads);
   const checkDupFn = useServerFn(checkLeadDuplicates);
   const testFn = useServerFn(sendLeadTestMail);
+  const runNowFn = useServerFn(runLeadMailingNow);
 
   const [data, setData] = useState<any>(null);
   const [tenantId, setTenantId] = useState<string>("");
@@ -124,21 +125,37 @@ function LeadMailingPage() {
     finally { setBusy(null); }
   };
 
-  const saveSettings = async () => {
+  const saveSettings = async (override?: Partial<Settings>) => {
     if (!form) return;
+    const prev = form;
+    const form2 = { ...form, ...override };
+    if (override) setForm(form2);
     setBusy("settings");
     const clean = (v: string | null) => (v && v.trim() ? v.trim() : null);
     try {
       await saveSettingsFn({ data: {
-        ...form, sender_email: clean(form.sender_email), sender_name: clean(form.sender_name), subject: clean(form.subject),
-        body: clean(form.body), homepage_url: clean(form.homepage_url), calendly_url: clean(form.calendly_url),
-        daily_limit: Number(form.daily_limit) || 75,
-        sig_name: clean(form.sig_name ?? null), sig_position: clean(form.sig_position ?? null), sig_phone: clean(form.sig_phone ?? null),
-        sig_website: clean(form.sig_website ?? null), sig_color: clean(form.sig_color ?? null),
+        ...form2, sender_email: clean(form2.sender_email), sender_name: clean(form2.sender_name), subject: clean(form2.subject),
+        body: clean(form2.body), homepage_url: clean(form2.homepage_url), calendly_url: clean(form2.calendly_url),
+        daily_limit: Number(form2.daily_limit) || 75,
+        sig_name: clean(form2.sig_name ?? null), sig_position: clean(form2.sig_position ?? null), sig_phone: clean(form2.sig_phone ?? null),
+        sig_website: clean(form2.sig_website ?? null), sig_color: clean(form2.sig_color ?? null),
       } });
-      toast({ title: "Einstellungen gespeichert" });
+      toast({ title: override && "active" in override ? (form2.active ? "Versand aktiv – gespeichert" : "Versand pausiert – gespeichert") : "Einstellungen gespeichert" });
       await load();
-    } catch (e: any) { toast({ title: "Fehler", description: e?.message, variant: "destructive" }); }
+    } catch (e: any) {
+      if (override) setForm(prev);
+      toast({ title: "Nicht gespeichert", description: e?.message, variant: "destructive" });
+    }
+    finally { setBusy(null); }
+  };
+
+  const runNow = async () => {
+    setBusy("run");
+    try {
+      const r = await runNowFn();
+      toast({ title: `${r.sent} Mails gesendet`, description: "Von Hand gestartet – das Tageslimit gilt trotzdem." });
+      await load();
+    } catch (e: any) { toast({ title: "Lauf fehlgeschlagen", description: e?.message, variant: "destructive" }); }
     finally { setBusy(null); }
   };
 
@@ -217,9 +234,13 @@ function LeadMailingPage() {
                 <div className="mt-1 text-xs text-muted-foreground">
                   Wartend {c.counts.pending ?? 0} · Gesendet {(c.counts.sent ?? 0) + (c.counts.replied ?? 0)} · Fehler {c.counts.failed ?? 0} · Unzustellbar {c.counts.bounced ?? 0} · Abgemeldet {c.counts.unsubscribed ?? 0}{c.counts.check ? ` · Prüfen ${c.counts.check}` : ""}
                 </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Letzter Lauf: {c.lastRunAt ? `${new Date(c.lastRunAt).toLocaleString("de-DE")} – ${c.lastRunResult ?? ""}` : "noch keiner"}
+                </div>
                 {c.lastError && <div className="mt-1 text-xs text-destructive break-words">Letzter Fehler: {c.lastError}</div>}
               </button>
             ))}
+            <Button variant="outline" size="sm" disabled={busy === "run"} onClick={runNow}>Jetzt einen Lauf starten</Button>
             <p className="text-xs text-muted-foreground">Gelb: 80 % vom Tageslimit erreicht oder viele Rückläufer. Rot: Resend meldet Fehler oder über 5 % Rückläufer – dann Versand pausieren und prüfen.</p>
           </CardContent>
         </Card>
@@ -265,7 +286,7 @@ function LeadMailingPage() {
           <CardHeader><CardTitle className="text-base">Standard-Nachricht für {bucketLabel}</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
-              <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
+              <Switch checked={form.active} disabled={busy === "settings"} onCheckedChange={(v) => saveSettings({ active: v })} />
               <span className="text-sm">{form.active ? "Versand aktiv" : "Versand pausiert"}</span>
             </div>
             <div className="grid md:grid-cols-2 gap-3">
@@ -309,7 +330,7 @@ function LeadMailingPage() {
                 <Input type="email" placeholder="deine@adresse.de" value={testTo} onChange={(e) => setTestTo(e.target.value)} /></div>
               <Button variant="outline" onClick={sendTest} disabled={busy === "test" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo.trim())}>Test-Mail senden</Button>
             </div>
-            <Button onClick={saveSettings} disabled={busy === "settings"}>Einstellungen speichern</Button>
+            <Button onClick={() => saveSettings()} disabled={busy === "settings"}>Einstellungen speichern</Button>
           </CardContent>
         </Card>
       )}

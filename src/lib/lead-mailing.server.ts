@@ -1,7 +1,7 @@
 // Serverseitiger Lead-Versand über Resend + Verarbeitung der Resend-Webhooks.
 import { mailAddressVariants, resolveTenantFromRecipient } from "./lead-mailing";
 import {
-  allowedToSendNow,
+  leadAllowance,
   renderLeadTemplate,
   isUnsubscribeReply,
   DEFAULT_LEAD_BODY,
@@ -105,8 +105,17 @@ export async function sentTodayFor(db: any, tenantId: string | null, startOfDay:
   return count ?? 0;
 }
 
+/** Letzten Lauf merken; fehlt die Spalte (Migration noch nicht da), still ignorieren. */
+async function recordRun(db: any, tenantId: string | null, now: Date, result: string) {
+  const patch = { last_run_at: now.toISOString(), last_run_result: result.slice(0, 300) };
+  try {
+    if (tenantId) await db.from("lead_mail_settings").update(patch).eq("tenant_id", tenantId);
+    else await db.from("lead_pool_settings").update(patch).eq("id", 1);
+  } catch { /* ignore */ }
+}
+
 /** Ein Versandlauf (Cron alle 10 Minuten). Leads werden vor dem Senden fest reserviert. */
-export async function runLeadMailingCycle(now = new Date()) {
+export async function runLeadMailingCycle(now = new Date(), opts: { manual?: boolean } = {}) {
   const db = await admin();
   const { apiKey } = await loadResendConfig();
   if (!apiKey) return { skipped: "no_resend_key" };
@@ -125,8 +134,13 @@ export async function runLeadMailingCycle(now = new Date()) {
     if (rateLimited) break;
     if (!s.sender_email) continue;
     const sentToday = await sentTodayFor(db, s.tenant_id, startOfDay);
-    const allowed = Math.min(25, allowedToSendNow(s.daily_limit, sentToday, now));
-    if (allowed <= 0) { results.push({ tenant: s.tenant_id, sent: 0 }); continue; }
+    const allowed = Math.min(25, leadAllowance(s.daily_limit, sentToday, now, !!opts.manual));
+    if (allowed <= 0) {
+      const reason = sentToday >= s.daily_limit ? "Tageslimit erreicht" : "Außerhalb 6–24 Uhr oder Kontingent für diese Uhrzeit verbraucht";
+      results.push({ tenant: s.tenant_id, sent: 0, reason });
+      await recordRun(db, s.tenant_id, now, `0 gesendet – ${reason}`);
+      continue;
+    }
 
     const { data: claimed, error: claimErr } = await db.rpc("claim_lead_batch", { p_tenant: s.tenant_id, p_limit: allowed });
     if (claimErr) throw new Error(`Leads konnten nicht reserviert werden: ${claimErr.message}`);
@@ -176,6 +190,9 @@ export async function runLeadMailingCycle(now = new Date()) {
       }
     }
     results.push({ tenant: s.tenant_id, sent, rateLimited });
+    const summary = rateLimited ? `${sent} gesendet – Resend bremst, Rest folgt im nächsten Lauf`
+      : unique.length === 0 ? "0 gesendet – keine wartenden Leads" : `${sent} von ${unique.length} gesendet`;
+    await recordRun(db, s.tenant_id, now, `${summary}${opts.manual ? " (von Hand)" : ""}`);
   }
   return { results };
 }
