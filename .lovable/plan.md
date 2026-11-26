@@ -10,11 +10,14 @@ Alle Änderungen (inkl. Chat-Sperre und Audit-Skript) sind gespeichert und werde
 ## Reihenfolge auf dem Portal-Server
 0. Repo-Adresse auf dem Server umstellen (einmalig):
    `cd /opt/apps/portal && git remote set-url origin https://github.com/DianaKnodel1/complete-project-transfer.git && git remote -v`
-   Da das Repo privat ist, danach einmalig: `GITHUB_TOKEN=<dein-token> bash scripts/set-git-token.sh` (falls set-git-token.sh noch fehlt, weil der Server noch die alte Version hat: `git config --global credential.helper store` und Token per `git ls-remote origin` mit Benutzer `x-access-token` eingeben).
+   Repo ist jetzt öffentlich – kein Token nötig. Danach `bash scripts/deploy.sh`.
    Prüfen: `git fetch origin && git log origin/main --oneline -1` muss "Fix audit column" zeigen.
 1. `cd /opt/apps/portal && bash scripts/deploy.sh` – Ausgabe schicken (Zeile mit `20261126010000_chat_send_lockdown.sql` muss erscheinen).
 2. `docker exec -i supabase-db psql -U postgres -d postgres < scripts/security-audit.sql` – nur lesen, Ausgabe schicken.
 3. `last -n 30; journalctl -u ssh --since "-3 days" | grep Accepted` – Ausgabe schicken.
+
+## Hinweis öffentliches Repo
+Jeder kann den Code jetzt lesen. Passwörter/Schlüssel liegen nur in `.env` auf dem Server, nicht im Repo – trotzdem nach dem Deploy das Repo wieder auf privat stellen und dann einmalig `set-git-token.sh` ausführen.
 
 ## Strix (KI-Penetrationstest, Open Source, Apache-2.0)
 Strix greift die eigene App wie ein Angreifer an und meldet gefundene Lücken. Sinnvoll als Ergänzung zum Audit.
