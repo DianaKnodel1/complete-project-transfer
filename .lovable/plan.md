@@ -1,31 +1,43 @@
-# Leads schneller anschreiben + Mail-Vorlagen
+# Leads schnell anschreiben, sicherer Auto-Versand, Mail-Vorlagen
 
-## Was es schon gibt
-Unter **Lead-Mailing** können Leads per CSV importiert werden; das Portal schreibt sie dann automatisch mit Tageslimit über Resend an, Antworten landen im Postfach. Deine Leads liegen aber als freier Text vor (Name, Mail, Telefon, Adresse gemischt) – deshalb musst du heute jeden einzeln anschreiben.
+## So funktioniert der automatische Versand heute
+- Alle 10 Minuten schaut das Portal je Firma nach Leads mit Status „wartet“ und schickt nur so viele, wie das **Tageslimit** erlaubt – gleichmäßig verteilt zwischen 8 und 20 Uhr, maximal 25 pro Durchgang.
+- Nach dem Senden wird der Lead auf „gesendet“ gesetzt und kommt nie wieder dran. Zusätzlich bekommt Resend pro Lead eine feste Kennung, damit Resend dieselbe Mail nicht zweimal annimmt.
+- Meldet Resend „zu viele“ (429), stoppt der Durchgang sofort. Zurückgekommene Mails und Abmeldungen werden gesperrt und nie wieder angeschrieben.
+- Beim Import werden Leads übersprungen, die es in dieser Firma schon gibt.
 
-## 1. Leads per Copy & Paste einfügen
-- Neues Feld „Leads als Text einfügen“ neben dem CSV-Import.
-- Du kopierst einfach den ganzen Text (wie in deinen Dateien) rein.
-- Das Portal erkennt pro Block (getrennt durch `-----` oder Leerzeilen, auch „Name , Mail“-Zeilen) automatisch **Name, E-Mail, Telefon**.
-- Vorschau-Tabelle: erkannte Leads, Doppelte, Einträge ohne E-Mail (rot markiert). Namen kannst du vor dem Import korrigieren; fehlt ein Name, wird er aus der E-Mail geraten oder „Hallo,“ verwendet.
-- Klick auf „Importieren“ → gleiche Logik wie CSV: Doppelte werden übersprungen, danach läuft der automatische Versand mit der vorhandenen Vorlage und dem Tageslimit. Kein Einzelanschreiben mehr.
+**Schwachstelle, die ich behebe:** Laufen zwei Durchgänge zufällig gleichzeitig, könnten beide denselben Lead greifen. Neu wird jeder Lead vor dem Senden fest „reserviert“ – nur ein Durchgang kann ihn haben. Ein Lead, der beim Senden hängen bleibt, wird nicht automatisch nochmal geschickt, sondern als „prüfen“ markiert.
 
-## 2. Mail-Vorlagen („Makros“) im Postfach
-- Beim Schreiben/Antworten im Postfach gibt es oben ein Menü **Vorlage einfügen**.
-- Ein Klick füllt Betreff und Text; Platzhalter wie `{vorname}`, `{name}`, `{firma}` werden mit den Daten des Empfängers ersetzt. Danach nur noch anpassen und senden.
-- Vorlagen verwalten (anlegen, umbenennen, bearbeiten, löschen) je Firma; ein paar Startvorlagen (Erstkontakt, Erinnerung, Terminbestätigung, Unterlagen anfordern) sind vorbereitet.
-- Versand bleibt wie gehabt: immer nur ein Empfänger pro Mail, gleiche Signatur und Layout.
+## 1. Neue Übersicht „Versand-Kontrolle“
+Pro Resend-Zugang/Firma auf einen Blick: heute gesendet / Tageslimit, wartend, fehlgeschlagen, zurückgekommen, abgemeldet, letzte Fehlermeldung von Resend. Ampel wird gelb ab 80 % des Limits und rot bei Resend-Fehlern oder hoher Rückläuferquote (Resend sperrt eher wegen Rückläufern als wegen Menge). Knopf „Versand pausieren“ je Zugang.
 
-## 3. Deploy auf den alten Portal-Server
-Nach der Umsetzung schickst du auf dem alten Server:
+## 2. Leads ohne Firma (Listen wie 4, 5, 6)
+- Neuer Bereich **„Leads ohne Firma“** mit eigenen Einstellungen: Absender, Vorlage, Tageslimit.
+- Diese Leads werden über die im Portal hinterlegten Resend-Zugänge verschickt (Pflicht, wie gewünscht). Sind mehrere Zugänge da, wird abwechselnd verteilt und jedes Limit einzeln eingehalten.
+- Doppelte E-Mails werden über **alle** Listen hinweg erkannt – niemand bekommt die Mail zweimal, auch wenn er in mehreren Listen steht (z. B. „Aisha Safo“ / „Noah May“ in mehreren Dateien).
+
+## 3. Leads mit Firma (Listen wie 7, z. B. szp-gmbh)
+- Beim Import wählst du die Firma; versendet wird mit deren Absender und Vorlage, wie bisher.
+- Liste 7 ist ein Facebook/Meta-Export (Tabulator-getrennt, Telefon mit „p:“): wird jetzt direkt erkannt, Telefon wird bereinigt.
+
+## 4. Einfügen per Copy & Paste
+- Feld „Leads als Text einfügen“: den ganzen Text reinkopieren (Blöcke mit `-----`, „Name , Mail“-Zeilen, „Bewerber Information“ usw.).
+- Erkennt Name, E-Mail, Telefon. Vorschau mit Doppelten und Problemfällen (keine Mail, Tippfehler wie „.come“) vor dem Import; Namen korrigierbar.
+
+## 5. Mail-Vorlagen („Makros“) im Postfach
+- Beim Schreiben/Antworten Menü **Vorlage einfügen**: füllt Betreff und Text, Platzhalter `{Vorname}`, `{Nachname}`, `{Firma}` werden ersetzt, dann nur anpassen und senden.
+- Vorlagen anlegen/bearbeiten/löschen, allgemein oder je Firma; Startvorlagen: Erstkontakt, Erinnerung, Terminbestätigung, Unterlagen anfordern.
+
+## 6. Deploy auf den alten Portal-Server (Daten bleiben)
 ```
 cd /opt/apps/portal && git status --short
 cd /opt/apps/portal && bash scripts/deploy.sh
 ```
-(Falls noch nicht passiert, einmalig vorher `GITHUB_TOKEN=<token> bash scripts/set-git-token.sh`.) Die Daten bleiben erhalten; nur die neue Vorlagen-Tabelle wird ergänzt.
+Falls noch nicht geschehen, einmalig vorher: `GITHUB_TOKEN=<token> bash scripts/set-git-token.sh`. Es kommen nur neue Tabellen/Spalten dazu, nichts wird gelöscht.
 
 ## Technische Details
-- `src/lib/lead-text-parser.ts`: Blocksplit, E-Mail-/Telefon-Regex, Namenserkennung (Labels „Name“, „Name , mail“, `Name<mail>`, Großbuchstaben normalisieren); Ausgabe `LeadRow[]` für den bestehenden `importLeads`. Tests mit Auszügen aus den drei Beispieldateien.
-- Neue Tabelle `mail_templates` (tenant_id, name, subject, body, sort) mit RLS nur für Admins, als neue Migration; Server-Funktionen list/save/delete.
-- Platzhalter über bestehendes `renderLeadTemplate`; Rendering weiter über `src/lib/mail-template.ts`.
-- UI: Paste-Karte in `admin.lead-mailing.tsx`, Vorlagen-Dropdown im Compose von `admin.postfach.tsx`.
+- Atomare Reservierung: `UPDATE applications SET lead_mail_status='sending' WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING` als DB-Funktion; hängende `sending` > 30 min → `check`.
+- Leads ohne Firma: `applications.tenant_id` bleibt null, Quelle „pool“; neue Tabelle `lead_pool_settings` + Zuordnung zu Resend-Zugängen; globaler Dubletten-Check per lower(email) über alle Lead-Quellen.
+- Parser: `src/lib/lead-text-parser.ts` (Freitext) + Tab-Trenner und `p:`-Präfix in `parseLeadCsv`; Tests mit Auszügen aus den Dateien 4–7.
+- Neue Tabelle `mail_templates` (tenant_id nullable) mit GRANTs + Admin-RLS; Versand-Kontrolle aus `lead_messages`/`applications`-Zählungen plus letzter Resend-Fehler.
+- Tests: kein Doppelversand bei zwei parallelen Durchgängen, Limit pro Zugang, globale Dubletten.
