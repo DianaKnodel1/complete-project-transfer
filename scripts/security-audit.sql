@@ -4,12 +4,12 @@ SELECT u.id, u.email, u.created_at, u.last_sign_in_at, u.raw_user_meta_data->>'f
 FROM auth.users u WHERE u.created_at > now() - interval '14 days' ORDER BY u.created_at;
 
 \echo '== Absender verdaechtiger Nachrichten =='
-SELECT m.sender_id, su.email AS sender, ru.email AS empfaenger, m.created_at, left(m.content,60) AS text
+SELECT m.sender_id, su.email AS sender, ru.email AS empfaenger, m.created_at, left(m.message,60) AS text
 FROM public.chat_messages m
 LEFT JOIN auth.users su ON su.id = m.sender_id
 LEFT JOIN auth.users ru ON ru.id = m.receiver_id
 WHERE m.created_at > now() - interval '3 days'
-  AND (m.content ~* '(poc|acc2|testkonto|realtime|^[A-Z]-?[0-9]{9,})' OR m.content ~ '[0-9]{10}')
+  AND (m.message ~* '(poc|acc2|testkonto|realtime|^[A-Z]-?[0-9]{9,})' OR m.message ~ '[0-9]{10}')
 ORDER BY m.created_at;
 
 \echo '== Nachrichten zwischen zwei Nicht-Admins (sollte leer sein) =='
