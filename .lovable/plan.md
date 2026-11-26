@@ -14,12 +14,12 @@ Das Portal verschickt Lead-Mails nicht sofort beim Einschalten. Ein Zeitplan auf
 
 ## Schritt 2 – Beheben
 - Ein Skript `scripts/setup-lead-cron.sh` richtet den 10-Minuten-Zeitplan einmalig ein, nach dem Vorbild von `fix-domain-health-cron.sh`. Der Deploy legt ihn ab jetzt automatisch an, wenn er fehlt.
-- Auf der Lead-Mailing-Seite steht künftig, wann der letzte Versandlauf war und warum nichts rausging, z. B. „kein Absender“, „außerhalb 6–24 Uhr“ oder „Tageslimit erreicht“. Ein Knopf „Jetzt einen Lauf starten“ (nur für Admins) stößt den Versand sofort an. Dabei gelten dieselben Limits, doppelte Mails sind ausgeschlossen.
+- Auf der Lead-Mailing-Seite steht künftig, wann der letzte Versandlauf war und warum nichts rausging, z. B. „kein Absender“, „außerhalb 6–24 Uhr“ oder „Tageslimit erreicht“. Ein Knopf „Jetzt einen Lauf starten“ (nur für Admins) stößt den Versand sofort an, auch außerhalb von 6–24 Uhr. Das Tageslimit von 75 Mails pro Absender gilt trotzdem, doppelte Mails sind ausgeschlossen.
 
 ## Technische Details
 - Jeder Lauf speichert Zeitpunkt und Ergebnis in `lead_pool_settings`/`lead_mail_settings` (zusätzliche Spalten `last_run_at` und `last_run_result`, nur hinzufügende Migration).
 - Der Admin-Knopf ruft `runLeadMailingCycle` über eine geschützte Server-Funktion mit Admin-Prüfung auf.
-- Ein Test prüft, dass auch ein Lauf von Hand nicht mehr als 75 Mails pro Absender und Tag und nichts außerhalb von 6–24 Uhr verschickt.
+- Ein Test prüft, dass der automatische Lauf nur zwischen 6 und 24 Uhr verschickt, ein Lauf von Hand zu jeder Uhrzeit, und beide nie mehr als 75 Mails pro Absender und Tag.
 
 # Backup-Server wieder frei machen
 
