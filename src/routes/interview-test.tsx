@@ -3,6 +3,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
+async function adminHeaders(): Promise<Record<string, string>> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data } = await supabase.auth.getSession();
+  const t = data.session?.access_token;
+  return { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) };
+}
+
+
 export const Route = createFileRoute("/interview-test")({
   component: InterviewTest,
   head: () => ({
@@ -26,7 +34,7 @@ function InterviewTest() {
     try {
       const res = await fetch("/api/public/interview-test-create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await adminHeaders(),
         body: JSON.stringify({ firstName, lastName, email }),
       });
       const data = await res.json();
@@ -35,8 +43,8 @@ function InterviewTest() {
       }
       const path =
         mode === "voice"
-          ? `/interview/voice/${data.id}`
-          : `/interview/${data.id}`;
+          ? `/interview/voice/${data.id}?k=${encodeURIComponent(data.k)}`
+          : `/interview/${data.id}?k=${encodeURIComponent(data.k)}`;
       window.location.href = path;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

@@ -59,6 +59,7 @@ export const Route = createFileRoute("/interview/voice/$appId")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     landing: typeof s.landing === "string" ? s.landing : "",
+    k: typeof s.k === "string" ? s.k : "",
   }),
   component: VoiceInterviewPageWrapper,
 });
@@ -73,7 +74,7 @@ function VoiceInterviewPageWrapper() {
 
 function VoiceInterviewPage() {
   const { appId } = useParams({ from: "/interview/voice/$appId" });
-  const { landing } = useSearch({ from: "/interview/voice/$appId" }) as { landing: string };
+  const { landing, k } = useSearch({ from: "/interview/voice/$appId" }) as { landing: string; k: string };
 
   const [consent, setConsent] = useState(false);
   const [config, setConfig] = useState<SessionConfig | null>(null);
@@ -142,7 +143,7 @@ function VoiceInterviewPage() {
       finalizedRef.current = true;
       try {
         setFinalizing(true);
-        const r = await postVoice({ action: "end", applicationId: appId });
+        const r = await postVoice({ action: "end", applicationId: appId, k });
         setEndResult(r as EndResult);
       } catch (e: any) {
         setError(e?.message ?? "Auswertung fehlgeschlagen");
@@ -162,7 +163,7 @@ function VoiceInterviewPage() {
       if (!text) return;
       setTranscript((prev) => [...prev, { role, text }]);
       // fire-and-forget persistieren
-      postVoice({ action: "save", applicationId: appId, role, text }).catch((err) => {
+      postVoice({ action: "save", applicationId: appId, k, role, text }).catch((err) => {
         console.warn("[voice] save failed:", err);
       });
     },
@@ -222,7 +223,7 @@ function VoiceInterviewPage() {
         throw new Error("Das Mikrofon konnte nicht aktiviert werden. Bitte prüfen Sie Ihre Browser-Einstellungen und versuchen Sie es erneut.");
       }
 
-      const cfg = (await postVoice({ action: "token", applicationId: appId })) as SessionConfig & { ok: boolean };
+      const cfg = (await postVoice({ action: "token", applicationId: appId, k })) as SessionConfig & { ok: boolean };
       setConfig(cfg);
       const overrides: any = {
         agent: {

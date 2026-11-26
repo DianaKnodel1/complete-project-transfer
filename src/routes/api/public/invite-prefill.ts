@@ -37,7 +37,8 @@ export const Route = createFileRoute("/api/public/invite-prefill")({
           .select("application_id, email, used")
           .eq("token", parsed.data.token)
           .maybeSingle();
-        if (!tok) return json({ ok: false, found: false });
+        // Benutzte Einladungen geben keine Bewerberdaten mehr heraus.
+        if (!tok || (tok as any).used) return json({ ok: false, found: false });
 
         let first_name: string | null = null;
         let last_name: string | null = null;

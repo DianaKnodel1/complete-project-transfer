@@ -448,7 +448,20 @@ export const getMailComposeContext = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ profileId: z.string().uuid().optional(), userId: z.string().uuid().optional(), applicationId: z.string().uuid().optional() }).parse(i ?? {}))
   .handler(async ({ data, context }) => {
-    await requireMailAccess(context);
+    const access = await requireMailAccess(context);
+    if (access === "caller" && (data.applicationId || data.profileId || data.userId)) {
+      // Caller dürfen nur Kontaktdaten zugewiesener Personen sehen.
+      let profileId = data.profileId ?? null;
+      if (!profileId && data.userId) {
+        const { data: pr } = await (context.supabase as any).from("profiles").select("id").eq("user_id", data.userId).maybeSingle();
+        profileId = pr?.id ?? null;
+        if (!profileId) throw new Error("Diese Person ist dir nicht zugewiesen.");
+      }
+      const { data: ok } = await (context.supabase as any).rpc("caller_can_see_mail", {
+        _user_id: context.userId, _app_id: data.applicationId ?? null, _profile_id: profileId, _peer: null,
+      });
+      if (!ok) throw new Error("Diese Person ist dir nicht zugewiesen.");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const [{ data: tenants }, { data: settings }, { data: ss }] = await Promise.all([

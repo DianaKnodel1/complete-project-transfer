@@ -62,7 +62,7 @@
   // Price features (split newlines from data attr)
   document.querySelectorAll('[data-qap-features]').forEach(function(el){
     var raw=el.getAttribute('data-qap-features')||'';
-    el.innerHTML=raw.split(/\n+/).filter(Boolean).map(function(l){return '<div>'+l.trim()+'</div>';}).join('');
+    el.innerHTML=raw.split(/\n+/).filter(Boolean).map(function(l){var d=document.createElement('div');d.textContent=l.trim();return d.outerHTML;}).join('');
   });
 
   // Year

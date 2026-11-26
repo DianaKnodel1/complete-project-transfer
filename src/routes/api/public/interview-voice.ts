@@ -21,14 +21,14 @@ const CORS = {
 };
 
 const Input = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("token"), applicationId: z.string().uuid() }),
+  z.object({ action: z.literal("token"), applicationId: z.string().uuid(), k: z.string().trim().min(8).max(128) }),
   z.object({
     action: z.literal("save"),
-    applicationId: z.string().uuid(),
+    applicationId: z.string().uuid(), k: z.string().trim().min(8).max(128),
     role: z.enum(["user", "assistant"]),
     text: z.string().max(8000),
   }),
-  z.object({ action: z.literal("end"), applicationId: z.string().uuid() }),
+  z.object({ action: z.literal("end"), applicationId: z.string().uuid(), k: z.string().trim().min(8).max(128) }),
 ]);
 
 function json(body: unknown, status = 200) {
@@ -82,10 +82,11 @@ export const Route = createFileRoute("/api/public/interview-voice")({
 
           const { data: appRaw, error: appErr } = await supabaseAdmin
             .from("applications")
-            .select("id, full_name, first_name, last_name, email, tenant_id, status, source_slug, source_landing_id, target_landing_id, interview_messages, interview_status, interview_mode, interview_started_at")
+            .select("id, full_name, first_name, last_name, email, tenant_id, status, source_slug, source_landing_id, target_landing_id, interview_messages, interview_status, interview_mode, interview_started_at, magic_token")
             .eq("id", parsed.data.applicationId)
             .maybeSingle();
-          if (appErr || !appRaw) return json({ error: "Bewerbung nicht gefunden" }, 404);
+          // Nur wer den persönlichen Bewerbungslink hat, darf das Gespräch führen.
+          if (appErr || !appRaw || !(appRaw as any).magic_token || (appRaw as any).magic_token !== parsed.data.k) return json({ error: "Bewerbung nicht gefunden" }, 404);
           const app = appRaw as ApplicationRow;
 
           if (parsed.data.action === "token") {

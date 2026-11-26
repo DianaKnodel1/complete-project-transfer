@@ -332,8 +332,11 @@ export const getContractSignatureUrls = createServerFn({ method: "POST" })
     const employeeUrl = await toDataUrl(contract.signature_image_url);
     const companyUrl = await toDataUrl(companySignature);
 
-    const pdfUrl = contract.pdf_url
-      ? (await supabaseAdmin.storage.from("documents").createSignedUrl(contract.pdf_url, 60 * 5)).data?.signedUrl ?? null
+    // Nur den vom Server selbst erzeugten Vertragspfad signieren — niemals einen
+    // frei gewählten Pfad aus der Vertragszeile.
+    const ownPdfPath = `${contract.user_id}/contract-${contract.id}.pdf`;
+    const pdfUrl = contract.pdf_url && contract.pdf_url === ownPdfPath
+      ? (await supabaseAdmin.storage.from("documents").createSignedUrl(ownPdfPath, 60 * 5)).data?.signedUrl ?? null
       : null;
 
     return { employeeUrl, companyUrl, pdfUrl };

@@ -10,6 +10,8 @@ var form_section_default2 = '/* Shared inline application form \u2014 light, tin
 // raw:/dev-server/src/landing-themes/_shared/form-section.js
 var form_section_default3 = `/* Shared inline application form handler + success modal + Inline-Terminwahl. */
 (function(){
+  function lvEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function lvUrl(v){var u=String(v||'');return /^(https?:\\/\\/|\\/|\\.\\/|[a-z0-9_-]+\\.html)/i.test(u)&&!/^javascript:/i.test(u)?lvEsc(u):'datenschutz.html';}
   function fmtWa(num){var d=String(num||'').replace(/[^0-9]/g,'');if(!d)return '';return d.length>4?'+'+d.slice(0,2)+' '+d.slice(2,5)+' '+d.slice(5):'+'+d;}
   function spamHintBox(emailStatus){
     var s=document.createElement('div');
@@ -87,7 +89,7 @@ var form_section_default3 = `/* Shared inline application form handler + success
     var hint=document.createElement('p');hint.style.cssText='margin:0 0 6px;color:#64748b;font-size:12.5px;';
     hint.textContent='Das Interview findet online statt \u2013 Best\xE4tigung, Kalendereintrag und Erinnerungen kommen automatisch von Calendly. Alle Zeiten in deutscher Zeit (Europe/Berlin).';
     var priv=document.createElement('p');priv.style.cssText='margin:0 0 14px;color:#94a3b8;font-size:11.5px;line-height:1.5;';
-    var dsUrl=window.LANDING_DATENSCHUTZ_URL||'datenschutz.html';
+    var dsUrl=lvUrl(window.LANDING_DATENSCHUTZ_URL||'datenschutz.html');
     priv.innerHTML='Ihre Daten werden ausschlie\xDFlich zur Terminvereinbarung verwendet. Details in unserer <a href="'+dsUrl+'" target="_blank" rel="noopener" style="color:#64748b;text-decoration:underline;">Datenschutzerkl\xE4rung</a>.';
     header.appendChild(h);header.appendChild(sub);header.appendChild(hint);header.appendChild(priv);
     container.appendChild(header);
@@ -271,8 +273,9 @@ var form_section_default3 = `/* Shared inline application form handler + success
       if(state.schedule && state.schedule.event_description){
         var desc=document.createElement('div');
         desc.style.cssText='margin:12px auto 0;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:left;font-size:13.5px;line-height:1.55;color:#0f172a;max-width:560px;';
-        // event_description kann HTML enthalten (aus dem Portal-Editor).
-        desc.innerHTML=state.schedule.event_description;
+        // Nur als Text anzeigen (Zeilenumbr\xFCche bleiben), nie als HTML.
+        desc.style.whiteSpace='pre-wrap';
+        desc.textContent=String(state.schedule.event_description).replace(/<br\\s*\\/?>/gi,'\\n').replace(/<[^>]*>/g,'');
         wrap.appendChild(desc);
       }
       container.appendChild(wrap);
@@ -435,9 +438,9 @@ var form_section_default3 = `/* Shared inline application form handler + success
     if(!form || form.querySelector('.lv-privacy-block')) return;
     var submit = form.querySelector('button[type=submit], input[type=submit]');
     if(!submit) return;
-    var firm = window.LANDING_FIRMENNAME || 'wir';
-    var dsUrl = window.LANDING_DATENSCHUTZ_URL || 'datenschutz.html';
-    var mail = window.LANDING_CONTACT_EMAIL || '';
+    var firm = lvEsc(window.LANDING_FIRMENNAME || 'wir');
+    var dsUrl = lvUrl(window.LANDING_DATENSCHUTZ_URL || 'datenschutz.html');
+    var mail = lvEsc(window.LANDING_CONTACT_EMAIL || '');
     var wrap = document.createElement('div');
     wrap.className = 'lv-privacy-block';
     wrap.style.cssText = 'margin:14px 0 12px;font-size:13px;line-height:1.55;color:#475569;text-align:left;';

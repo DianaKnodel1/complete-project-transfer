@@ -26,6 +26,7 @@ const CORS = {
 
 const Input = z.object({
   applicationId: z.string().uuid(),
+  k: z.string().trim().min(8).max(128),
   action: z.enum(["init", "message", "end"]),
   text: z.string().max(4000).optional(),
 });
@@ -157,16 +158,17 @@ export const Route = createFileRoute("/api/public/interview-chat")({
         }
         const parsed = Input.safeParse(payload);
         if (!parsed.success) return json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
-        const { applicationId, action, text } = parsed.data;
+        const { applicationId, action, text, k } = parsed.data;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         // Lade Bewerbung + Landing-Prompt
         const { data: app, error: appErr } = await supabaseAdmin
           .from("applications")
-          .select("id, full_name, first_name, last_name, email, tenant_id, status, source_slug, source_landing_id, target_landing_id, interview_messages, interview_status, interview_mode, interview_started_at, scheduled_at, is_test")
+          .select("id, full_name, first_name, last_name, email, tenant_id, status, source_slug, source_landing_id, target_landing_id, interview_messages, interview_status, interview_mode, interview_started_at, scheduled_at, is_test, magic_token")
           .eq("id", applicationId)
           .maybeSingle();
-        if (appErr || !app) return json({ error: "Bewerbung nicht gefunden" }, 404);
+        // Nur wer den persönlichen Bewerbungslink hat, darf das Gespräch führen.
+        if (appErr || !app || !(app as any).magic_token || (app as any).magic_token !== k) return json({ error: "Bewerbung nicht gefunden" }, 404);
         if (app.interview_status === "done" || app.interview_status === "taken_over") {
           return json({ error: "Interview bereits abgeschlossen", status: app.interview_status }, 409);
         }

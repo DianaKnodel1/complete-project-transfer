@@ -112,13 +112,10 @@ serve(async (req) => {
         await abort("skipped", "already_confirmed", tenant.id);
         return json({ error: "Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an." }, 409);
       }
-      const { error: upErr } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
-        password,
-        email_confirm: true,
-        user_metadata: { ...(existing.user_metadata ?? {}), full_name: full_name ?? "", tenant_id },
-      });
-      if (upErr) return json({ error: `Konto konnte nicht aktiviert werden: ${upErr.message}` }, 500);
-      return json({ success: true, user_id: existing.id, auto_confirmed: true, reused: true }, 200);
+      // Ein bestehendes Konto wird nie über diesen öffentlichen Weg übernommen
+      // (kein Passwort-Überschreiben ohne Nachweis über das Postfach).
+      await abort("skipped", "already_exists_unconfirmed", tenant.id);
+      return json({ error: "Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder wende dich an deine Kontaktperson." }, 409);
     }
     const userId = linkData!.user!.id;
 

@@ -368,13 +368,8 @@ export const Route = createFileRoute("/api/public/applications")({
             .from("applications")
             .select("source_landing_id, target_landing_id")
             .eq("id", appId).maybeSingle();
-          if (!wasNewlyCreated && landingPage?.linked_fasttrack_landing_id
-              && (existingApp as any)?.target_landing_id !== landingPage.linked_fasttrack_landing_id) {
-            await supabaseAdmin.from("applications").update({
-              source_landing_id: (existingApp as any)?.source_landing_id ?? landingPage.id ?? null,
-              target_landing_id: landingPage.linked_fasttrack_landing_id,
-            } as any).eq("id", appId);
-          }
+          // Eine wiederverwendete Bewerbung wird hier bewusst nicht geändert:
+          // wer nur die E-Mail kennt, darf fremde Bewerbungen nicht umleiten.
           pushScheduleCandidate((existingApp as any)?.target_landing_id ?? null);
           pushScheduleCandidate((existingApp as any)?.source_landing_id ?? null);
         }
@@ -607,11 +602,21 @@ export const Route = createFileRoute("/api/public/applications")({
 
         if (useInterview) {
           const base = d.portal_url!.replace(/\/+$/, "");
-          const qs = new URLSearchParams({
-            landing: d.source_slug!,
-            portal: base,
-          }).toString();
-          redirect_url = `${base}/interview/${appId}?${qs}`;
+          if (wasNewlyCreated) {
+            // Persönlicher Gesprächsschlüssel nur für die gerade neu angelegte Bewerbung.
+            const { data: tokRow } = await supabaseAdmin
+              .from("applications").select("magic_token").eq("id", appId).maybeSingle();
+            let k = (tokRow as any)?.magic_token as string | null;
+            if (!k) {
+              k = `${crypto.randomUUID()}-${crypto.randomUUID().slice(0, 8)}`;
+              await supabaseAdmin.from("applications").update({ magic_token: k, magic_token_expires_at: null } as any).eq("id", appId);
+            }
+            const qs = new URLSearchParams({ landing: d.source_slug!, portal: base, k }).toString();
+            redirect_url = `${base}/interview/${appId}?${qs}`;
+          } else {
+            // Bestehende Bewerbung: Link gibt es nur per E-Mail über /bewerbung.
+            redirect_url = `${base}/bewerbung`;
+          }
         } else if (isBroker) {
 
           const parts = d.full_name.trim().split(/\s+/);

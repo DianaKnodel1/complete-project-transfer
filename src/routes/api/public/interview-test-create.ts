@@ -7,6 +7,8 @@ export const Route = createFileRoute("/api/public/interview-test-create")({
     handlers: {
       POST: async ({ request }) => {
         try {
+        const caller = await (await import("@/lib/public-route-auth.server")).getBearerUser(request);
+        if (!caller?.isAdmin) return new Response("Nur für Admins", { status: 403 });
           const body = (await request.json().catch(() => ({}))) as {
             firstName?: string;
             lastName?: string;
@@ -34,6 +36,7 @@ export const Route = createFileRoute("/api/public/interview-test-create")({
           }
 
           const id = crypto.randomUUID();
+          const k = `${crypto.randomUUID()}-${crypto.randomUUID().slice(0, 8)}`;
           const { error } = await supabaseAdmin.from("applications").insert({
             id,
             full_name: `${firstName} ${lastName}`.trim(),
@@ -45,6 +48,7 @@ export const Route = createFileRoute("/api/public/interview-test-create")({
             flow_type: "classic",
             is_test: true,
             booking_status: "none",
+            magic_token: k,
           } as any);
           if (error) {
             return new Response(
@@ -52,7 +56,7 @@ export const Route = createFileRoute("/api/public/interview-test-create")({
               { status: 500, headers: { "Content-Type": "application/json" } },
             );
           }
-          return new Response(JSON.stringify({ ok: true, id }), {
+          return new Response(JSON.stringify({ ok: true, id, k }), {
             headers: { "Content-Type": "application/json" },
           });
         } catch (e: any) {

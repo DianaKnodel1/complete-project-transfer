@@ -32,7 +32,7 @@ type LookupState =
   | { kind: "loading" }
   | { kind: "email-form" }
   | { kind: "invalid" }
-  | { kind: "ready"; appId: string; fullName?: string; landingSlug?: string | null; interviewMode: "chat" | "voice" | "both" };
+  | { kind: "ready"; appId: string; magicToken: string; fullName?: string; landingSlug?: string | null; interviewMode: "chat" | "voice" | "both" };
 
 const STEPS: { title: string; text: string }[] = [
   { title: "Kurzes Gespräch im Chat", text: "Ein paar Fragen zu Ihrer Person, Motivation und Verfügbarkeit — ganz in Ruhe, ohne Zeitdruck." },
@@ -88,6 +88,7 @@ function BewerbungLandingPage() {
         setState({
           kind: "ready",
           appId: data.application_id,
+          magicToken: token,
           fullName: data.full_name,
           landingSlug: data.landing_slug ?? null,
           interviewMode: mode,
@@ -105,6 +106,7 @@ function BewerbungLandingPage() {
     const qs = new URLSearchParams();
     if (state.landingSlug) qs.set("landing", state.landingSlug);
     if (mode === "chat" && base) qs.set("portal", base);
+    qs.set("k", state.magicToken);
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     const path = mode === "voice" ? `/interview/voice/${state.appId}` : `/interview/${state.appId}`;
     window.location.href = `${base}${path}${suffix}`;

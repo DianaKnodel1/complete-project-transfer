@@ -5,9 +5,12 @@
 
 const SEP = ";";
 
-function escapeCell(value: unknown): string {
+export function escapeCell(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
+  let s = String(value);
+  // Formel-Einschleusung verhindern: Excel führt Zellen mit = + - @ (auch nach
+  // Tab/CR) als Formel aus → mit Apostroph als Text markieren.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   if (s === "") return "";
   // Werte mit Trennzeichen, Anführungszeichen oder Umbruch müssen gequotet werden.
   if (/[";,\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;

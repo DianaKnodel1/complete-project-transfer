@@ -24,6 +24,37 @@ function json(body: unknown, status = 200) {
   });
 }
 
+const GENERIC_MESSAGE = "Falls zu dieser E-Mail-Adresse eine Bewerbung vorliegt, haben wir dir soeben deinen persönlichen Link zum Bewerbungsgespräch per E-Mail geschickt. Bitte prüfe auch den Spam-Ordner.";
+
+async function mailInterviewLink(app: any, link: string) {
+  const supabaseUrl = (process.env["SUPABASE_URL"] ?? process.env["API_EXTERNAL_URL"] ?? "").replace(/\/+$/, "");
+  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? process.env["SERVICE_ROLE_KEY"] ?? "";
+  if (!supabaseUrl || !serviceKey || !app?.email || !app?.tenant_id) return;
+  const headers: Record<string, string> = { "Content-Type": "application/json", apikey: serviceKey };
+  if (!serviceKey.startsWith("sb_")) headers.Authorization = `Bearer ${serviceKey}`;
+  const parts = String(app.full_name ?? "").trim().split(/\s+/);
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-invitation-email`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        to: app.email,
+        fullName: app.full_name,
+        firstName: parts[0] || "",
+        lastName: parts.slice(1).join(" "),
+        registrationLink: link,
+        tenantId: app.tenant_id,
+        templateName: "application_received",
+        applicationId: app.id,
+        requestId: `lookup-${app.id}-${Math.floor(Date.now() / 600000)}`,
+        placeholders: { calendly_link: link, booking_link: link },
+      }),
+    });
+  } catch (e) {
+    console.error("[application-lookup] mail failed", e);
+  }
+}
+
 export const Route = createFileRoute("/api/public/application-lookup")({
   server: {
     handlers: {
@@ -52,7 +83,7 @@ export const Route = createFileRoute("/api/public/application-lookup")({
 
         if (error) {
           console.error("[application-lookup]", error);
-          return json({ error: `Datenbank-Abfrage fehlgeschlagen: ${error.message || "unbekannter Fehler"}` }, 500);
+          return json({ error: "Abfrage fehlgeschlagen. Bitte später erneut versuchen." }, 500);
         }
         const bookedStatuses = new Set(["scheduled", "completed", "booked", "gebucht", "bestätigt", "bestaetigt", "abgeschlossen"]);
         const isBooked = (row: any) => {
@@ -62,13 +93,8 @@ export const Route = createFileRoute("/api/public/application-lookup")({
 
         const rows = (apps ?? []) as any[];
         const app = rows.find(isBooked) ?? rows[0];
-        if (!app) {
-          return json({
-            found: false,
-            reason: "no_application",
-            message: `Zu der E-Mail-Adresse "${email}" liegt uns keine Bewerbung vor. Bitte prüfe die Schreibweise – verwende die exakte Adresse, mit der du dich beworben hast. Falls du dich noch nicht beworben hast, mach das zuerst über die Landing-Page.`,
-          });
-        }
+        // Keine Auskunft, ob eine Bewerbung existiert; der Link geht nur an das Postfach.
+        if (!app) return json({ found: false, message: GENERIC_MESSAGE });
 
         const landingSelect = "id, calendly_url, slug, source_slug, flow_type, domain, linked_fasttrack_landing_id, booking_mode";
         const loadLandingById = async (id?: string | null) => {
@@ -115,9 +141,8 @@ export const Route = createFileRoute("/api/public/application-lookup")({
           || (await loadLandingById(app.source_landing_id))
           || (await loadLandingBySlug(app.source_slug))
         );
-        const landingSlug: string | null = targetLanding?.slug ?? app.source_slug ?? null;
+        void (targetLanding?.slug ?? app.source_slug);
 
-        const booked = isBooked(app);
         let magicToken: string | null = app.magic_token ?? null;
         // Bewerbungs-/Interview-Magic-Links laufen bewusst NICHT ab.
         if (!magicToken) {
@@ -145,14 +170,8 @@ export const Route = createFileRoute("/api/public/application-lookup")({
         // Das Bewerbungsgespräch kann sofort gestartet werden — es gibt keine
         // Terminbuchung / Umbuchung mehr im Bewerber-Flow.
         const redirectUrl = `${base}/bewerbung?token=${encodeURIComponent(magicToken)}`;
-        return json({
-          found: true,
-          booked,
-          interview_ready: true,
-          landing_slug: landingSlug,
-          redirect_url: redirectUrl,
-          message: "Deine Bewerbung wurde gefunden. Du wirst jetzt zum Bewerbungsgespräch weitergeleitet.",
-        });
+        await mailInterviewLink(app, redirectUrl);
+        return json({ found: false, mailed: true, message: GENERIC_MESSAGE });
       },
     },
   },

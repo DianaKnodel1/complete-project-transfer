@@ -61,13 +61,14 @@ export const Route = createFileRoute("/interview/$appId")({
   validateSearch: (s: Record<string, unknown>) => ({
     landing: typeof s.landing === "string" ? s.landing : "",
     portal: typeof s.portal === "string" ? s.portal : "",
+    k: typeof s.k === "string" ? s.k : "",
   }),
   component: InterviewPage,
 });
 
 function InterviewPage() {
   const { appId } = useParams({ from: "/interview/$appId" });
-  const { landing, portal } = useSearch({ from: "/interview/$appId" }) as { landing: string; portal: string };
+  const { landing, portal, k } = useSearch({ from: "/interview/$appId" }) as { landing: string; portal: string; k: string };
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -171,7 +172,7 @@ function InterviewPage() {
       setRetryAction(null);
       setInitializing(true);
       try {
-        const data = await postInterview({ applicationId: appId, action: "init" });
+        const data = await postInterview({ applicationId: appId, k, action: "init" });
         if (cancelled) return;
         applyServerBranding(data);
         const history = data.history ?? [];
@@ -252,7 +253,7 @@ function InterviewPage() {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => setTyping(true), readMs);
     try {
-      const data = await postInterview({ applicationId: appId, action: "message", text });
+      const data = await postInterview({ applicationId: appId, k, action: "message", text });
       applyServerBranding(data);
       // Menschlichere Antwortzeit: kurze Denkpause + „Tipp"-Zeit abhängig von Antwortlänge
       const reply = (data.history ?? []).slice(-1)[0]?.text ?? "";
@@ -288,7 +289,7 @@ function InterviewPage() {
     setRetryAction(null);
     setLoading(true);
     try {
-      const data = await postInterview({ applicationId: appId, action: "end" });
+      const data = await postInterview({ applicationId: appId, k, action: "end" });
       applyServerBranding(data);
       if (data?.application_status) setAppStatus(data.application_status);
       const im = (data as any)?.invite_mail;

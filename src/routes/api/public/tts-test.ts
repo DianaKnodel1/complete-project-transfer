@@ -4,6 +4,8 @@ export const Route = createFileRoute("/api/public/tts-test")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const caller = await (await import("@/lib/public-route-auth.server")).getBearerUser(request);
+        if (!caller?.isAdmin) return new Response("Nur für Admins", { status: 403 });
         const { text, voiceId, modelId } = (await request.json()) as {
           text: string;
           voiceId?: string;

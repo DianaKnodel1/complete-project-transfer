@@ -131,15 +131,33 @@ async function requireAdmin(ctx: { supabase: any; userId: string }) {
   if (!data) throw new Error("Nicht autorisiert");
 }
 
+export function sniffUploadImage(b: Uint8Array): { mime: string; ext: string } | null {
+  const at = (i: number) => b[i] ?? -1;
+  if (at(0) === 0x89 && at(1) === 0x50 && at(2) === 0x4e && at(3) === 0x47) return { mime: "image/png", ext: "png" };
+  if (at(0) === 0xff && at(1) === 0xd8 && at(2) === 0xff) return { mime: "image/jpeg", ext: "jpg" };
+  if (at(0) === 0x47 && at(1) === 0x49 && at(2) === 0x46) return { mime: "image/gif", ext: "gif" };
+  if (at(0) === 0x52 && at(1) === 0x49 && at(2) === 0x46 && at(3) === 0x46 && at(8) === 0x57 && at(9) === 0x45 && at(10) === 0x42 && at(11) === 0x50) return { mime: "image/webp", ext: "webp" };
+  if (at(4) === 0x66 && at(5) === 0x74 && at(6) === 0x79 && at(7) === 0x70 && at(8) === 0x61 && at(9) === 0x76 && at(10) === 0x69 && at(11) === 0x66) return { mime: "image/avif", ext: "avif" };
+  if (at(0) === 0x00 && at(1) === 0x00 && at(2) === 0x01 && at(3) === 0x00) return { mime: "image/x-icon", ext: "ico" };
+  const head = new TextDecoder().decode(b.slice(0, Math.min(b.length, 200_000))).trim();
+  if (/^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE svg[^>]*>\s*)?<svg[\s>]/i.test(head)
+      && !/<script|<foreignObject|\son[a-z]+\s*=|javascript:|<iframe|<embed|<object/i.test(head)) {
+    return { mime: "image/svg+xml", ext: "svg" };
+  }
+  return null;
+}
+
 function parseDataUrl(dataUrl: string): { mime: string; ext: string; bytes: Uint8Array } | null {
   const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
   if (!m) return null;
-  const mime = m[1];
-  const ext = mime.includes("svg") ? "svg" : mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : mime.includes("ico") ? "ico" : "png";
-  const bin = atob(m[2]);
+  let bin: string;
+  try { bin = atob(m[2]!); } catch { return null; }
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return { mime, ext, bytes };
+  // Dateityp am Inhalt erkennen, nicht an der Angabe des Aufrufers.
+  const kind = sniffUploadImage(bytes);
+  if (!kind) return null;
+  return { mime: kind.mime, ext: kind.ext, bytes };
 }
 
 function portalDomainFromUrl(value: string): string | null {
@@ -274,7 +292,8 @@ export const saveLandingPage = createServerFn({ method: "POST" })
     // Recruiter-Avatar: entweder neue Data-URL hochladen, oder bestehende URL übernehmen.
     if (data.recruiter_avatar_data_url) {
       const parsed = parseDataUrl(data.recruiter_avatar_data_url);
-      if (parsed) {
+      if (!parsed || parsed.mime === "image/svg+xml") throw new Error("Recruiter-Bild: nur PNG, JPG, WebP, GIF oder AVIF erlaubt.");
+      {
         const path = `${slug}/recruiter.${parsed.ext}`;
         const { error: upErr } = await supabaseAdmin.storage
           .from("recruiter-avatars")

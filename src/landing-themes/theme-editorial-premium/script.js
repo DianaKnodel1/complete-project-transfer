@@ -10,7 +10,7 @@
     el.innerHTML = raw.split('|').map(function (item) {
       var t = item.trim();
       if (!t) return '';
-      return '<a href="#">' + t + '</a>';
+      var a = document.createElement('a'); a.href = '#'; a.textContent = t; return a.outerHTML;
     }).join('');
   });
 

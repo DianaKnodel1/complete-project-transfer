@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 
+async function adminHeaders(): Promise<Record<string, string>> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data } = await supabase.auth.getSession();
+  const t = data.session?.access_token;
+  return { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) };
+}
+
+
 export const Route = createFileRoute("/tts-test")({
   component: TtsTest,
   head: () => ({
@@ -34,7 +42,7 @@ function TtsTest() {
     try {
       const res = await fetch("/api/public/tts-test", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await adminHeaders(),
         body: JSON.stringify({ text, voiceId: voice }),
       });
       if (!res.ok) throw new Error(await res.text());

@@ -19,7 +19,7 @@ const Input = z.object({
   messages: z
     .array(
       z.object({
-        role: z.enum(["user", "assistant", "system"]),
+        role: z.enum(["user", "assistant"]),
         content: z.string().max(6000),
       }),
     )
@@ -123,16 +123,20 @@ export const Route = createFileRoute("/api/public/ai-chat")({
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
         try {
+          // Nur angemeldete Nutzer; Rollen und Anweisungen bestimmt allein der Server.
+          const caller = await (await import("@/lib/public-route-auth.server")).getBearerUser(request);
+          if (!caller) return jsonRes({ error: "unauthorized" }, 401);
           const parsed = Input.safeParse(await request.json().catch(() => ({})));
           if (!parsed.success) return jsonRes({ error: "invalid_body" }, 400);
           const msgs = [
             { role: "system", content: SYSTEM_PROMPT },
-            ...parsed.data.messages,
+            ...parsed.data.messages.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
           ];
           const content = await callAi(msgs);
           return jsonRes({ content });
         } catch (e: any) {
-          return jsonRes({ error: e?.message ?? "internal_error" }, 500);
+          console.error("[ai-chat]", e);
+          return jsonRes({ error: "internal_error" }, 500);
         }
       },
     },

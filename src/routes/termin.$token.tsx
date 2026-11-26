@@ -151,6 +151,7 @@ function CancelPage() {
               startsAt={start}
               endsAt={end}
               applicationId={a.application_id ?? null}
+              magicToken={a.magic_token ?? null}
               landingSlug={a.landing_slug ?? null}
               interviewStatus={a.interview_status ?? null}
             />
@@ -254,12 +255,14 @@ function InterviewStart({
   startsAt,
   endsAt,
   applicationId,
+  magicToken,
   landingSlug,
   interviewStatus,
 }: {
   startsAt: Date;
   endsAt: Date;
   applicationId: string | null;
+  magicToken: string | null;
   landingSlug: string | null;
   interviewStatus: string | null;
 }) {
@@ -300,7 +303,7 @@ function InterviewStart({
         : `${mins}:${String(secs).padStart(2, "0")} Min`;
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const qs = new URLSearchParams({ landing: landingSlug ?? "", portal: origin }).toString();
+  const qs = new URLSearchParams({ landing: landingSlug ?? "", portal: origin, k: magicToken ?? "" }).toString();
   const interviewUrl = `${origin}/interview/${applicationId}?${qs}`;
 
   return (
