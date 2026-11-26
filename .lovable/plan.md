@@ -11,10 +11,12 @@
 ## 1. Neue Übersicht „Versand-Kontrolle“
 Pro Resend-Zugang/Firma auf einen Blick: heute gesendet / Tageslimit, wartend, fehlgeschlagen, zurückgekommen, abgemeldet, letzte Fehlermeldung von Resend. Ampel wird gelb ab 80 % des Limits und rot bei Resend-Fehlern oder hoher Rückläuferquote (Resend sperrt eher wegen Rückläufern als wegen Menge). Knopf „Versand pausieren“ je Zugang.
 
-## 2. Leads ohne Firma (Listen wie 4, 5, 6)
-- Neuer Bereich **„Leads ohne Firma“** mit eigenen Einstellungen: Absender, Vorlage, Tageslimit.
-- Diese Leads werden über die im Portal hinterlegten Resend-Zugänge verschickt (Pflicht, wie gewünscht). Sind mehrere Zugänge da, wird abwechselnd verteilt und jedes Limit einzeln eingehalten.
-- Doppelte E-Mails werden über **alle** Listen hinweg erkannt – niemand bekommt die Mail zweimal, auch wenn er in mehreren Listen steht (z. B. „Aisha Safo“ / „Noah May“ in mehreren Dateien).
+## 2. Leads ohne Firma (Listen wie 4, 5, 6) – alles auf einer Seite
+- Eine Seite **Lead-Mailing**, oben die Auswahl „Ohne Firma“ oder eine Firma. Darunter direkt: Standard-Nachricht, Tageslimit, Import und Versand-Status – keine Unterseiten.
+- Du kannst die 3 Textdateien auf einmal hochladen (oder reinkopieren). Doppelte E-Mails werden sofort erkannt – innerhalb der Dateien und gegen alle schon vorhandenen Leads – und in der Vorschau angezeigt, bevor etwas importiert wird.
+- Versand läuft über die im Portal hinterlegten Resend-Zugänge.
+
+**Welche Mail bekommen die Leads?** Die **Standard-Nachricht**, die du dort einstellst: Betreff, Text und Absender frei änderbar, mit Platzhaltern `{Vorname}`, `{Nachname}`, `{Homepage}`, `{Calendly}`, `{Absender}`. Daneben siehst du eine Vorschau, wie die Mail beim ersten Lead aussieht, und kannst eine Test-Mail an dich selbst schicken. Für „Ohne Firma“ ist eine Startnachricht ohne Firmennamen vorbereitet; Firmen behalten ihre eigene Nachricht.
 
 ## 3. Leads mit Firma (Listen wie 7, z. B. szp-gmbh)
 - Beim Import wählst du die Firma; versendet wird mit deren Absender und Vorlage, wie bisher.
