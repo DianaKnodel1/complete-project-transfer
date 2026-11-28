@@ -73,6 +73,12 @@ cd "$PROJECT_DIR"
   git reset --hard "origin/$REPO_BRANCH"
 
   log "2/5  build"
+  validate_config
+  if [ -z "$VITE_SUPABASE_URL" ]; then
+    echo "  ✗ VITE_SUPABASE_URL fehlt in $ENV_FILE." >&2
+    exit 1
+  fi
+  ok "Anmelde-Adresse für den Bau: $VITE_SUPABASE_URL"
   bun install --frozen-lockfile
   # Fix for Bun SIGABRT/Memory issues: use Node for build if available, or try to limit Bun memory
   if command -v node >/dev/null 2>&1; then
@@ -83,6 +89,12 @@ cd "$PROJECT_DIR"
     # Fallback to Bun with limited parallel tasks if possible, but Bun doesn't have a direct equivalent to --max-old-space-size
     bun run build
   fi
+
+  if ! grep -rqF "$VITE_SUPABASE_URL" "$PROJECT_DIR/.output/public" 2>/dev/null; then
+    echo "  ✗ Neuer Bau enthält $VITE_SUPABASE_URL nicht — Release wird NICHT aktiviert." >&2
+    exit 1
+  fi
+  ok "Neuer Bau nutzt $VITE_SUPABASE_URL"
 
   log "3/5  release activation"
   release_dir="$RELEASES_DIR/$(date +%Y%m%d-%H%M%S)"
