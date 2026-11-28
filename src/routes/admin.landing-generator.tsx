@@ -970,7 +970,7 @@ document.addEventListener('submit', function(e){
     }
   };
 
-  const apiPlaceholder = "https://portal.mb-portal.com/api/public/applications";
+  const apiPlaceholder = "https://mb-portal.de/api/public/applications";
 
   return (
     <div className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6">
@@ -1246,7 +1246,7 @@ document.addEventListener('submit', function(e){
                   <li><strong className="text-foreground">Landing-Domain *</strong> — Domain der Landing (ohne <code>https://</code>), z.B. <code>uwk-consulting.de</code></li>
                   <li>
                     <strong className="text-foreground">API-Endpoint *</strong> — IMMER dein zentrales Portal-Backend:<br/>
-                    <code>https://portal.mb-portal.com/api/public/applications</code> (für alle Kunden gleich)
+                    <code>https://mb-portal.de/api/public/applications</code> (für alle Kunden gleich)
                   </li>
                   <li>
                     <strong className="text-foreground">Tenant-ID *</strong> — UUID aus Admin → Tenants → Spalte „ID" kopieren.<br/>
@@ -1356,7 +1356,7 @@ document.addEventListener('submit', function(e){
                 </Field>
                 <Field label="API-Endpoint für Bewerbungen *">
                   <Input value={branding.api_endpoint} onChange={set("api_endpoint")} placeholder={apiPlaceholder} />
-                  <p className="text-[10px] text-muted-foreground mt-1">Immer das zentrale Portal-Backend: <code>https://portal.mb-portal.com/api/public/applications</code></p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Immer das zentrale Portal-Backend: <code>https://mb-portal.de/api/public/applications</code></p>
                 </Field>
                 {branding.flow_type === "fast" && (
                   <Field label="Mitarbeiter-Portal URL * (Redirect nach Fast-Track-Bewerbung)">

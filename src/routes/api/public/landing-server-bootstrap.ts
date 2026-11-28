@@ -1,5 +1,5 @@
 // Public endpoint: Bootstrap-Script für einen neuen Landing-Server.
-// Aufruf: curl -sSL https://mb-portal.com/api/public/landing-server-bootstrap?token=XYZ | bash
+// Aufruf: curl -sSL https://mb-portal.de/api/public/landing-server-bootstrap?token=XYZ | bash
 //
 // Validiert Token gegen landing_servers.bootstrap_token, gibt dann ein
 // idempotentes Setup-Script aus (Node, Caddy, server.js, systemd) — alle
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/public/landing-server-bootstrap")({
         const supabaseUrl = process.env.SUPABASE_URL ?? "";
         const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
         const portalOrigin = normalizePortalOrigin(url.origin);
-        const acmeEmail = process.env.ACME_EMAIL ?? "admin@mb-portal.com";
+        const acmeEmail = process.env.ACME_EMAIL ?? "admin@mb-portal.de";
 
         const script = renderScript({
           serverName: server.name,

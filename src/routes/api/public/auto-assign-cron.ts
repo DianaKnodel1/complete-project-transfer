@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 // Weist anstehenden Terminen automatisch einen Auftrag zu, wenn 15 Minuten
 // vor Terminbeginn noch keiner zugewiesen ist.
 // Aufruf minütlich via Cron:
-//   * * * * * curl -fsS "https://mb-portal.com/api/public/auto-assign-cron?key=<CRON_SECRET>" >/dev/null
+//   * * * * * curl -fsS "https://mb-portal.de/api/public/auto-assign-cron?key=<CRON_SECRET>" >/dev/null
 
 export const Route = createFileRoute("/api/public/auto-assign-cron")({
   server: {
