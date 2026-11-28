@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Richtet den Lead-Versand-Zeitplan (alle 10 Minuten) auf dem Portal-Server ein.
 # Idempotent: ein vorhandener Eintrag wird ersetzt, nie doppelt angelegt.
-#   bash scripts/setup-lead-cron.sh            (Domain: mb-portal.com)
+#   bash scripts/setup-lead-cron.sh            (Domain: mb-portal.de)
 #   PORTAL_DOMAIN=portal.example.com bash scripts/setup-lead-cron.sh
 set -euo pipefail
 REPO_DIR="${REPO_DIR:-/opt/apps/portal}"
-PORTAL_DOMAIN="${PORTAL_DOMAIN:-mb-portal.com}"
+PORTAL_DOMAIN="${PORTAL_DOMAIN:-mb-portal.de}"
 if [ -z "${CRON_SECRET:-}" ]; then
   for f in "$REPO_DIR/.env.server" "$REPO_DIR/.env"; do
     [ -f "$f" ] || continue

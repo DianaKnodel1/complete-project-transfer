@@ -19,7 +19,7 @@
 #  Mit direkter DB-URL:
 #      TARGET_DB_URL="postgresql://..." bash scripts/fix-mail-crons.sh
 #
-#  Ziel-URL überschreibbar:  API_URL="https://api.mb-portal.com" bash ...
+#  Ziel-URL überschreibbar:  API_URL="https://api.mb-portal.de" bash ...
 # =============================================================================
 set -uo pipefail
 
@@ -32,7 +32,7 @@ CONF_FILE="$REPO_DIR/scripts/backend-server.env"
 : "${BACKEND_DB_CONTAINER:=supabase-db}"
 : "${BACKEND_DB_USER:=supabase_admin}"
 : "${BACKEND_DB_NAME:=postgres}"
-: "${API_URL:=https://api.mb-portal.com}"
+: "${API_URL:=https://api.mb-portal.de}"
 
 # Host ohne Schema — die Cron-Kommandos bauen 'https://<SUPABASE_URL>/functions/v1/...'
 API_HOST="${API_URL#https://}"
