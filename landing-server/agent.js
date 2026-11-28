@@ -10,7 +10,7 @@
  *
  * Pflicht-ENV:
  *   LANDING_SERVER_TOKEN   Bootstrap-Token aus /admin/infrastructure
- *   PORTAL_API_ENDPOINT    z.B. https://mb-portal.com/api/public/applications
+ *   PORTAL_API_ENDPOINT    z.B. https://mb-portal.de/api/public/applications
  *                          (oder direkt PORTAL_BASE=https://mb-portal.com)
  * Optional:
  *   PORT                   Port des Renderers (Default 3001)

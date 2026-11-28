@@ -14,8 +14,8 @@
 #  Pflicht-Umgebungsvariablen vor Aufruf:
 #    SUPABASE_URL=https://supabase.deine-domain.de
 #    SUPABASE_PUBLISHABLE_KEY=<anon-key>
-#    PORTAL_API_ENDPOINT=https://mb-portal.com/api/public/applications
-#    ACME_EMAIL=admin@mb-portal.com
+#    PORTAL_API_ENDPOINT=https://mb-portal.de/api/public/applications
+#    ACME_EMAIL=admin@mb-portal.de
 #
 #  Optional:
 #    REPO_URL=https://github.com/dein-user/dein-portal.git

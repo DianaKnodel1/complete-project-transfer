@@ -28,8 +28,8 @@ cd <repo>/landing-server
 # .env aus den self-hosted Supabase-Daten setzen
 export SUPABASE_URL=https://supabase.deine-domain.de
 export SUPABASE_PUBLISHABLE_KEY=eyJ...                # anon/publishable key
-export PORTAL_API_ENDPOINT=https://mb-portal.com/api/public/applications
-export ACME_EMAIL=admin@mb-portal.com                 # für Let's Encrypt
+export PORTAL_API_ENDPOINT=https://mb-portal.de/api/public/applications
+export ACME_EMAIL=admin@mb-portal.de                 # für Let's Encrypt
 export LANDING_SERVER_TOKEN=<Token aus /admin/infrastructure>
 
 bash setup.sh
